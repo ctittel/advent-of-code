@@ -4,7 +4,6 @@
           while line
           collect (parse-integer line))))
 
-
 (defun get-comparison-result (data)
       (length
         (remove-if #'null
@@ -18,5 +17,7 @@
 
 (defun load-data () (get-file "data.txt"))
 
-(print (list "Problem 1 solution:" (get-comparison-result (load-data))))
-(print (list "Problem 2 solution:" (problem2 (load-data))))
+(print (get-comparison-result (load-data)))
+(print (problem2 (load-data)))
+
+;; sbcl --script solution.cl
