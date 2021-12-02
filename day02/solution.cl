@@ -14,7 +14,6 @@
     (apply #'parse-one-item
         (split-sequence:split-sequence #\  item)))
 
-
 (defun parse-one-item (command thenumber)
         (let ((num (parse-integer thenumber)))
             (cond ((equalp command "forward") (list num 0))
@@ -27,32 +26,20 @@
     (apply #'* (apply #'mapcar #'+ lists))
 )
 
-(defun state-horizontal (state)
-    (first state))
+(defun reduce-fn (current-sum next-item)
+    (append current-sum (list (+ (car (last current-sum)) next-item))))
 
-(defun state-vert (state)
-    (first (cdr state)))
-
-(defun state-aim (state)
-    (car (last state)))
-
-(defun action-forward (action) (first action))
-(defun action-downward (action) (first (cdr action)))
-
-; state: (horizontal vertical aim)
-(defun next-state (prev-state action)
-    (list
-        (+ (state-horizontal prev-state) (action-forward action))
-        (+ (state-vert prev-state) (* (state-aim prev-state) (action-forward action)))
-        (+ (state-aim prev-state) (action-downward action))))
-
-(defun forward-state (lists)
-    (reduce #'next-state lists :initial-value '(0 0 0))
-)
-
-(defun problem2 (data)
-    (let ((final-state (forward-state data)))
-        (* (first final-state) (first (cdr final-state))))
+; lists: ((horizontal1 vertical1) (horizontal2 vertical2) ...)
+(defun problem2 (lists)
+    (let* ((unpacked-lists (apply #'mapcar #'list lists))
+        (horizontals (car unpacked-lists))
+        (verticals (car (cdr unpacked-lists)))
+        (aims (reduce #'reduce-fn verticals :initial-value '(0)))
+        )
+            (* (reduce #'+ horizontals)
+                (reduce #'+ (mapcar #'* horizontals aims))
+            )
+    )
 )
 
 (print (problem1 (load-data)))
