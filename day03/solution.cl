@@ -1,7 +1,3 @@
-(load "~/quicklisp/setup.lisp")
-(ql:quickload "split-sequence")
-(require "split-sequence")
-
 (defun load-file (filename)
   (with-open-file (stream filename)
     (loop for line = (read-line stream nil)
@@ -29,11 +25,10 @@
     (let* ((sums (apply #'mapcar #'+ lists))
             (main (map 'list (lambda (x) (get-avg (length lists) x)) sums))
             (inverse (map 'list (lambda (x) (reverse-bit x)) main))
-            ; (counts1 (apply #'mapcar #'count #\1 lists))
         )
         (* 
-        (binlist-to-dec main)
-        (binlist-to-dec inverse))
+            (binlist-to-dec main)
+            (binlist-to-dec inverse))
 ))
 
 (defun get-sublist (lists list-pos)
@@ -63,7 +58,6 @@
         (binlist-to-dec (filter-dominant lists 0 (lambda (lists list-pos) (reverse-bit (get-dominant-bit lists list-pos)))))
     )
 )
-; lambda (x) (get-avg (length lists) x)
 
 (print (problem1 (load-data)))
 (print (problem2 (load-data)))
