@@ -65,4 +65,15 @@
             (problem1 forwarded-boards (cdr drawn-numbers) (+ 1 i)))
 ))
 
+(defun problem2 (boards drawn-numbers i)
+    (let* ( (current-number (car drawn-numbers))
+            (forwarded-boards (play-boards boards current-number))
+            ; (winner (some #'is-winner-board forwarded-boards))
+            (no-winners (remove-if #'is-winner-board forwarded-boards)))
+        (if (= 0 (length no-winners))
+            (* current-number (sum-board (car forwarded-boards)))
+            (problem2 no-winners (cdr drawn-numbers) (+ 1 i)))
+))
+
 (print (problem1 (load-boards) (load-numbers) 0))
+(print (problem2 (load-boards) (load-numbers) 0))
