@@ -7,7 +7,7 @@
         (car (split-sequence:split-sequence #\Newline 
             (alexandria:read-file-into-string "input.txt"))))))
 
-; ;; --- Below the actual problem ---
+; --- Done loading ---
 
 (defun forward-day (freq-by-age)
     (let*  (   (current (car freq-by-age))
@@ -25,7 +25,8 @@
         (lambda (current-freq n-day) (forward-day current-freq))
         (alexandria:iota n-days) :initial-value initial-freq))
 
-(defun sum-list (l) (reduce #'+ l))
+(print (apply #'+ (forward-days (count-freqs (load-data)) 80)))
+(print (apply #'+ (forward-days (count-freqs (load-data)) 256)))
 
-(print (sum-list (forward-days (count-freqs (load-data)) 80)))
-(print (sum-list (forward-days (count-freqs (load-data)) 256)))
+; requires quicklisp and the packages split-sequence and alexandria
+; sbcl --script solution.cl
