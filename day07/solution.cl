@@ -23,7 +23,7 @@
         (apply #'min 
             (mapcar 
                 (lambda (mid) (funcall cost-fn mid positions)) 
-                (alexandria:iota (- max-pos min-pos) :start min-pos)))))
+                (alexandria:iota (+ 1 (- max-pos min-pos)) :start min-pos)))))
 
 (print (find-min #'costA (load-data)))
 (print (find-min #'costB (load-data)))
