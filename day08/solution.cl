@@ -27,43 +27,20 @@
                 ((eq c #\g) #b1000000)
 ))
 
-(defun word-to-bin (word) (apply #'logior (mapcar #'char-to-bin (coerce word 'list))))
-
-(defun wordlist-to-binlist (wordlist) (mapcar #'word-to-bin wordlist))
-
-; (defun bin-to-int (num)
-;         (cond 
-;                 ((= num (word-to-bin "abcefg")) 0)
-;                 ((= num (word-to-bin "cf")) 1)
-;                 ((= num (word-to-bin "acdeg")) 2)
-;                 ((= num (word-to-bin "acdfg")) 3)
-;                 ((= num (word-to-bin "bcdf")) 4)
-;                 ((= num (word-to-bin "abdfg")) 5)
-;                 ((= num (word-to-bin "abdefg")) 6)
-;                 ((= num (word-to-bin "acf")) 7)
-;                 ((= num (word-to-bin "abcdefg")) 8)
-;                 ((= num (word-to-bin "abcdfg")) 9)
-;                 (t "fail")
-; ))
-
-(defun is1 (word) (= 2 (length word)))
-(defun is4 (word) (= 4 (length word)))
-(defun is7 (word) (= 3 (length word)))
-(defun is8 (word) (= 7 (length word)))
-(defun is1478 (word) (or (is1 word) (is4 word) (is7 word) (is8 word)))
-
-(defun count1478 (list-of-strs)
-        (apply #'+ 
-          (mapcar 
-            (lambda (strs) (length (remove-if (lambda (word) (not (is1478 word))) strs))) 
-            list-of-strs)))
+(defun wordlist-to-binlist (wordlist) 
+        (mapcar (lambda (word) (apply #'logior (mapcar #'char-to-bin (coerce word 'list)))) wordlist))
 
 (defun sum-bits-aux (num sum)
         (if (> num 0) (sum-bits-aux (ash num -1) (+ sum (logand num 1))) sum))
 
-(defun count1bits (bin-num) (sum-bits-aux bin-num 0))
+(defun n-set-bits (bin-nums n) 
+        (remove-if-not (lambda (x) (= n (sum-bits-aux x 0))) bin-nums))
 
-(defun n-set-bits (bin-nums n) (remove-if-not (lambda (x) (= n (count1bits x))) bin-nums))
+(defun count1478 (list-of-strs)
+        (let* (
+                (all-results (apply #'append list-of-strs))
+                (lens (mapcar #'length all-results)))
+                (+ (count 2 lens) (count 3 lens) (count 4 lens) (count 7 lens))))
 
 (defun get-mappings (bin-nums)
         (let* (
@@ -79,10 +56,8 @@
                 (e (- x8 x4 a g))
                 (b (- x4 x1 d))
                 (f (- abfg a b g))
-                (c (- x1 f))
-                (mappings (list a b c d e f g))
-        )
-        (print mappings)))
+                (c (- x1 f)))
+        (list a b c d e f g)))
 
 (defun apply-mapping (bin-num mapping)
         (let (
@@ -93,7 +68,6 @@
                 (e (nth 4 mapping))
                 (f (nth 5 mapping))
                 (g (nth 6 mapping)))
-                (print bin-num)
                 (cond 
                         ((= bin-num (+ a b c e f g)) 0)
                         ((= bin-num (+ c f)) 1)
@@ -106,8 +80,7 @@
                         ((= bin-num (+ a b c d e f g)) 8)
                         ((= bin-num (+ a b c d f g)) 9)
                         ((= bin-num 0) 0)
-                        (t "fail")
-                )))
+                        (t "fail"))))
 
 (defun process-line (operands results)
         (let* ( 
@@ -122,4 +95,5 @@
                         (mapcar #'wordlist-to-binlist results))))
 
 (print (+ (count1478 (load-results))))
+
 (print (problem2 (load-operands) (load-results)))
