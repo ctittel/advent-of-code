@@ -33,6 +33,7 @@
 (defun sum-bits-aux (num sum)
         (if (> num 0) (sum-bits-aux (ash num -1) (+ sum (logand num 1))) sum))
 
+; returns the items (= digits) from the list where n segments are one 
 (defun n-set-bits (bin-nums n) 
         (remove-if-not (lambda (x) (= n (sum-bits-aux x 0))) bin-nums))
 
@@ -42,23 +43,31 @@
                 (lens (mapcar #'length all-results)))
                 (+ (count 2 lens) (count 3 lens) (count 4 lens) (count 7 lens))))
 
+; input: list of the numbers of one line
+;        format of the number: binary, e.g. 1 means segment 1 is on, 3 (#b11) means segment 1 and 2 are on, etc.
 (defun get-mappings (bin-nums)
         (let* (
-                (x1 (car (n-set-bits bin-nums 2)))
-                (x4 (car (n-set-bits bin-nums 4)))
-                (x7 (car (n-set-bits bin-nums 3)))
-                (x8 (car (n-set-bits bin-nums 7)))
-                (adg (apply #'logand (n-set-bits bin-nums 5)))
+                (x1 (car (n-set-bits bin-nums 2))) ; 2 segments on = digit 1
+                (x4 (car (n-set-bits bin-nums 4))) ; 4 segments on = digit 4
+                (x7 (car (n-set-bits bin-nums 3))) ; 3 segments on = digit 7
+                (x8 (car (n-set-bits bin-nums 7))) ; 7 segments on = digit 8
+                (adg (apply #'logand (n-set-bits bin-nums 5))) 
+                ; bitwise AND of all digits with 5 segments (digits 2 5 3) gives us the bits for segments a d g
                 (abfg (apply #'logand (n-set-bits bin-nums 6)))
-                (a (- x7 x1))
-                (d (logand adg x4))
-                (g (- adg a d))
+                ; bitwise AND of all digits with 6 segments on (digits 6 9 0) gives us the bits for segments a b f g
+                (a (- x7 x1)) ; segment a is the one different digits 7 and 1 have
+                (d (logand adg x4)) ; segment d is the only segment adg and digit 4 have in common
+                (g (- adg a d)) ; removing segments a and d from adg gives us g
                 (e (- x8 x4 a g))
                 (b (- x4 x1 d))
                 (f (- abfg a b g))
                 (c (- x1 f)))
         (list a b c d e f g)))
 
+; bin-num: a binary number in the same format as in get-mappings
+; mapping: list of 7 numbers (each represeting one segment)
+;       first item: the bits for segment a (if the display works correctly this would be 0001); because segments are switched segment a is probably represented by a different bit, e.g. 001000
+; etc.
 (defun apply-mapping (bin-num mapping)
         (let (
                 (a (nth 0 mapping))
