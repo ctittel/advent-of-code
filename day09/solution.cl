@@ -20,8 +20,7 @@
 (defun valid-coord (grid xy)
   (and (>= (x xy) 0) (>= (y xy) 0) (< (x xy) (width-grid grid)) (< (y xy) (height-grid grid))))
 
-(defun get-val (grid xy)
-  (nth (x xy) (nth (y xy) grid)))
+(defun get-val (grid xy) (nth (x xy) (nth (y xy) grid)))
 
 (defun get-window (grid xy)
   (remove-if-not
@@ -30,8 +29,7 @@
         (list (x xy) (- (y xy) 1))
         (list (- (x xy) 1) (y xy))
         (list (+ 1 (x xy)) (y xy))
-        (list (x xy) (+ 1 (y xy)))
-)))
+        (list (x xy) (+ 1 (y xy))))))
 
 (defun get-parent (grid xy)
   (let* ((val (get-val grid xy))
@@ -43,9 +41,8 @@
     (cond 
         ((>= val 9) 'border)
         ((> val (get-val grid xymin)) xymin)
-        ((< val (get-val grid xymin)) 'root) ; (if xymin xymin 'root))
-        (t 'fail)
-    )))
+        ((< val (get-val grid xymin)) 'root)
+        (t 'fail))))
 
 (defun build-tree (grid)
   (let* ((*tree* (make-hash-table :test 'equal)))
@@ -60,27 +57,10 @@
   (+ 1
       (apply #'+ (mapcar (lambda (xxyy) (count-childs *tree* xxyy)) (gethash xy *tree*)))))
 
-(defun remove-max (l)
-  (let ((maxitm (apply #'max l)))
-    (remove* maxitm l :count 1)  
-))
-
-(defun sum-top-n (l n)
-  (let ((sorted (sort l #'>)))
-    ; (print sorted)))
-    (* (nth 0 sorted) (nth 1 sorted) (nth 2 sorted))))
-
 (defun problem2 (grid)
   (let* ( (tree (build-tree grid))
           (basins (mapcar (lambda (r) (count-childs tree r)) (gethash 'root tree))))
-    (sum-top-n basins 3)))
-
-; (defparameter --tree (build-tree (load-grid)))
-; (print (count-childs --tree 'root))
-; (print (count-childs --tree 'border))
-; (print (+ (count-childs --tree 'root) (count-childs --tree 'border)))
-; (print (gethash 'fail --tree))
-
+    (apply #'* (subseq (sort basins #'>) 0 3))))
 
 (print (length (gethash 'root (build-tree (load-grid)))))
 (print (problem2 (load-grid)))
