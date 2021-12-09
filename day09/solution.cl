@@ -14,29 +14,73 @@
 (defun height-grid (grid) (length grid))
 (defun width-grid (grid) (length (car grid)))
 
-(defun get-val (x y grid)
-  (let* ((height (height-grid grid)) (width (width-grid grid)))
-    (if (or (< x 0) (< y 0) (>= x width) (>= y height)) nil (nth x (nth y grid)))))
+(defun x (xy) (nth 0 xy))
+(defun y (xy) (nth 1 xy))
 
-(defun get-window (x y grid)
-  (list (get-val x (- y 1) grid) (get-val (- x 1) y grid) (get-val (+ x 1) y grid) (get-val x (+ y 1) grid)))
+(defun valid-coord (grid xy)
+  (and (>= (x xy) 0) (>= (y xy) 0) (< (x xy) (width-grid grid)) (< (y xy) (height-grid grid))))
 
-(defun check-local-minima (middle window)
-  (< middle 
-     (reduce (lambda (total x) (if (or (null x) (<= total x)) total x)) window :initial-value (+ 1 middle)))) 
+(defun get-val (grid xy)
+  (nth (x xy) (nth (y xy) grid)))
 
-(defun get-windows (grid)
-  (mapcar 
-    (lambda (yy) 
-      (mapcar 
-        (lambda (xx) (get-window xx yy grid)) 
-        (alexandria:iota (width-grid grid))))
-    (alexandria:iota (height-grid grid))))
+(defun get-window (grid xy)
+  (remove-if-not
+      (lambda (xyw) (valid-coord grid xyw)) 
+      (list
+        (list (x xy) (- (y xy) 1))
+        (list (- (x xy) 1) (y xy))
+        (list (+ 1 (x xy)) (y xy))
+        (list (x xy) (+ 1 (y xy)))
+)))
 
-(defun problem1 (grid)
-  (let* ((wins (apply #'append (get-windows grid)))
-         (middles (apply #'append grid))
-         (minimas (remove nil (mapcar (lambda (mid win) (if (check-local-minima mid win) mid nil)) middles wins))))
-     (+ (length minimas) (apply #'+ minimas))))
+(defun get-parent (grid xy)
+  (let* ((val (get-val grid xy))
+          (window (get-window grid xy))
+          (xymin (reduce (lambda (current next)
+                            (if (< (get-val grid next) (get-val grid current)) next current)) 
+                    window       
+                    :initial-value (nth 0 window))))
+    (cond 
+        ((>= val 9) 'border)
+        ((> val (get-val grid xymin)) xymin)
+        ((< val (get-val grid xymin)) 'root) ; (if xymin xymin 'root))
+        (t 'fail)
+    )))
 
-(print (problem1 (load-grid)))
+(defun build-tree (grid)
+  (let* ((*tree* (make-hash-table :test 'equal)))
+    (loop for x in (alexandria:iota (width-grid grid)) do
+      (loop for y in (alexandria:iota (height-grid grid)) do
+        (let* ( (xy (list x y))
+                (parent (get-parent grid xy)))
+              (setf (gethash parent *tree*) (append (gethash parent *tree*) (list xy))))))
+  *tree*))    
+
+(defun count-childs (*tree* xy)
+  (+ 1
+      (apply #'+ (mapcar (lambda (xxyy) (count-childs *tree* xxyy)) (gethash xy *tree*)))))
+
+(defun remove-max (l)
+  (let ((maxitm (apply #'max l)))
+    (remove* maxitm l :count 1)  
+))
+
+(defun sum-top-n (l n)
+  (let ((sorted (sort l #'>)))
+    ; (print sorted)))
+    (* (nth 0 sorted) (nth 1 sorted) (nth 2 sorted))))
+
+(defun problem2 (grid)
+  (let* ( (tree (build-tree grid))
+          (basins (mapcar (lambda (r) (count-childs tree r)) (gethash 'root tree))))
+    (sum-top-n basins 3)))
+
+; (defparameter --tree (build-tree (load-grid)))
+; (print (count-childs --tree 'root))
+; (print (count-childs --tree 'border))
+; (print (+ (count-childs --tree 'root) (count-childs --tree 'border)))
+; (print (gethash 'fail --tree))
+
+
+(print (length (gethash 'root (build-tree (load-grid)))))
+(print (problem2 (load-grid)))
