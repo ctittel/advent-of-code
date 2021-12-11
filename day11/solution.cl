@@ -64,4 +64,12 @@
         (let ((new-grid (explode (increment grid))))
             (problem1 (- nsteps 1) new-grid (+ count (count-flat 0 new-grid))))))
 
+(defun problem2 (grid)
+    (let* ((ncells (* (height-grid grid) (width-grid grid)))
+            (zeros (count-flat 0 grid)))
+        (if (= zeros ncells)
+            0
+            (+ 1 (problem2 (explode (increment grid)))))))
+
 (print (problem1 100 (load-grid) 0))    ; 1673
+(print (problem2 (load-grid)))
