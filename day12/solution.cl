@@ -22,13 +22,6 @@
 (defun is-small-cave (node)
     (every #'lower-case-p (coerce node 'list)))
 
-
-;; (defun get-all-paths (graph start end forbidden cache nextnodes-fn)
-;;     (if (gethash (list start end forbidden) cache)
-;;         (gethash (list start end forbidden) cache)
-;;         (setf   (gethash (list start end forbidden) cache)
-;;                 (get-all-paths-aux graph start end forbidden cache nextnodes-fn))))
-
 (defun sort-aux (forbidden)
     (sort forbidden #'> :key #'length))
 
