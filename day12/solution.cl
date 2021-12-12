@@ -23,20 +23,21 @@
     (every #'lower-case-p (coerce node 'list)))
 
 
-(defun get-all-paths (graph start end forbidden cache nextnodes-fn)
-    (if (gethash (list start end forbidden) cache)
-        (gethash (list start end forbidden) cache)
-        (setf   (gethash (list start end forbidden) cache)
-                (get-all-paths-aux graph start end forbidden cache nextnodes-fn))))
+;; (defun get-all-paths (graph start end forbidden cache nextnodes-fn)
+;;     (if (gethash (list start end forbidden) cache)
+;;         (gethash (list start end forbidden) cache)
+;;         (setf   (gethash (list start end forbidden) cache)
+;;                 (get-all-paths-aux graph start end forbidden cache nextnodes-fn))))
 
 (defun sort-aux (forbidden)
     (sort forbidden #'> :key #'length))
 
-(defun get-all-paths-aux (graph start end forbidden cache nextnodes-fn)
-    (cond ((equal start end) 1)
-        (t (let ( (nodes (funcall nextnodes-fn graph start forbidden))
-                (new-forbidden (if (is-small-cave start) (sort-aux (append forbidden (list start))) forbidden)))
-            ;; (print (list start end nodes forbidden))
+(defun get-all-paths (graph current end forbidden nextnodes-fn)
+    (cond ((equal current end) 1)
+        (t (let* (  (new-forbidden (if  (is-small-cave current) 
+                                    (sort-aux (append forbidden (list current))) 
+                                    forbidden))
+                    (nodes (funcall nextnodes-fn graph current new-forbidden)))
             (apply #'+ (mapcar 
                         (lambda (next) 
                             (get-all-paths 
@@ -44,7 +45,6 @@
                                 next 
                                 end 
                                 new-forbidden
-                                cache
                                 nextnodes-fn))
                         nodes))))))
 
@@ -52,11 +52,16 @@
     (remove-if  (lambda (x) (position x forbidden :test 'equal)) 
                 (gethash node graph)))
 
-; Problem 1: 4495
-(let ((graph (build-graph (load-data))))
-    ;; (print graph)
-    ;; (print (alexandria:hash-table-alist graph))
-    ;; (print (alexandria:hash-table-plist graph))
-    (print (get-all-paths graph "end" "start" (list) (make-hash-table :test 'equal) #'next-nodes-A))
+(defun next-nodes-B (graph node forbidden)
+    (if (= 0 (length forbidden))
+        (gethash node graph)
+        (let* ((counts (mapcar (lambda (x) (count x forbidden :test 'equal)) forbidden))
+                (max-count (apply #'max counts)))
+            (if (> max-count 1)
+                (next-nodes-A graph node forbidden)
+                (remove-if (lambda (x) (equal x "start")) (gethash node graph))))))
 
+(let ((graph (build-graph (load-data))))
+    (print (get-all-paths graph "start" "end" (list) #'next-nodes-A))
+    (print (get-all-paths graph "start" "end" (list)  #'next-nodes-B))
 )
