@@ -26,17 +26,6 @@
             ) (list dim num)))
         data))
 
-; (defun build-grid (coords)
-;     (let* ((grid (make-hash-table :test 'equal)))
-;         (mapcar 
-;             (lambda (coord)
-
-;             )
-;             coords
-;         )
-;     )
-; )
-
 (defun fold-scalar (x fold-x)
     (cond   ((< x fold-x) x)
             ((= x fold-x) nil)
@@ -70,14 +59,11 @@
             (arr (make-array (list (+ 1 maxy) (+ 1 maxx)) :initial-element '_))                        
         )
         (loop for coord in final-coords do (setf (aref arr (nth 1 coord) (nth 0 coord)) 'X))
-    arr
-))
+    arr))
 
-(let* (
-        (data (load-data))
+(let* ( (data (load-data))
         (coords (car data))
-        (folds (nth 1 data))
-    )
+        (folds (nth 1 data)))
     (print (problem1 coords (car folds)))
     (print (problem2 coords folds))
 )
