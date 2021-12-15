@@ -1,6 +1,7 @@
 (load "~/quicklisp/setup.lisp")
 (require "split-sequence")
 (require "alexandria")
+(require "cl-heap")
 
 (defun load-grid() 
         (let* (
@@ -11,31 +12,57 @@
 
 ; ---
 
-(defun get-cell-itm (grid x y)
-    (nth x (nth y grid)))
+(defparameter grid (load-grid))
+(defparameter grid-height (length grid))
+(defparameter grid-width (length (car grid)))
 
-(defun update-cell (grid x y)
-    (setf (nth x (nth y grid))
-        (+
-            (get-cell-itm grid x y)
-            (cond   ((and (= 0 x) (= 0 y)) 0)
-                    ((= 0 x) (get-cell-itm grid x (- y 1)))
-                    ((= 0 y) (get-cell-itm grid (- x 1) y))
-                    (t (min (get-cell-itm grid x (- y 1))
-                            (get-cell-itm grid (- x 1) y)))))))
+(defun x (node) (nth 0 node))
+(defun y (node) (nth 1 node))
 
-(defun calc-costs (grid)
-    (loop for y in (alexandria:iota (length grid)) do
-        (loop for x in (alexandria:iota (length (car grid))) do
-            (update-cell grid x y))))
+(defun is-valid-node (node)
+    (and    (< (y node) grid-height)
+            (< (x node) grid-width)
+            (>= (y node) 0)
+            (>= (x node) 0)))
 
-(defun problem1 (grid)
-    (let* ((costgrid (calc-costs grid)))
-        (- (car (last (car (last grid)))) 
-            (car (car grid)))))
+(defun get-neighbors (node)
+    (remove-if-not #'is-valid-node
+        (list
+            (list (x node) (- (y node) 1))
+            (list (x node) (+ (y node) 1))
+            (list (- (x node) 1) (y node))
+            (list (+ (x node) 1) (y node)))))
 
-(print (problem1 (load-grid))) ; too high: 147665780682923711971804561743820527253137345314183522211703
-                                ; too low: 274
-                                ; too low: 395
-                                ; 402 false
-                                ; 404 false
+(defun get-cost (node)
+    (nth (x node) (nth (y node) grid)))
+
+(defun heuristic (node goal)
+    (+  (- (x goal) (x node)
+        (- (y goal) (y node)))))
+
+(defun astar (start goal)
+    (let* 
+        (
+            (openset (make-instance 'cl-heap:priority-queue))
+            (gscore (make-hash-table :test 'equal))
+            ; (fscore (make-hash-table :test 'equal))
+        )
+        (setf (gethash start gscore) 0)
+        (cl-heap:enqueue openset start 0)
+        (loop do ;(not (cl-heap:is-empty-heap-p openset)) do
+            (let ((current (cl-heap:dequeue openset)))
+                (print current)
+                (if (equal current goal) (return (gethash current gscore)) nil)
+                (loop for neighbor in (get-neighbors current) do
+                    (let ((tenative (+ (gethash current gscore) (get-cost neighbor))))
+                        (print tenative)
+                        (if (or (null (gethash neighbor gscore)) 
+                                (< tenative (gethash neighbor gscore)))
+                            (let()
+                                (setf (gethash neighbor gscore) tenative)
+                                ; (setf (gethash neighbor fscore) (+ tenative (heuristic neighbor)))
+                                (cl-heap:enqueue openset neighbor (+ tenative (heuristic neighbor goal)))
+                            )
+                            nil)))))))
+
+(print (astar (list 0 0) (list (- grid-width 1) (- grid-height 1))))
