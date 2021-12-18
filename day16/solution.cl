@@ -36,45 +36,77 @@
         (lambda (total x) (+ (* total 2) x))
         binlist))
 
-(defun get-version (binlist)
-    (binlist-to-dec (subseq binlist 0 3)))
-
-(defun type-id (binlist)
-    (binlist-to-dec (subseq binlist 3 6)))
-
 (defun parse-literals-package (binlist)
-    (let* ((current (binlist-to-dec (subseq binlist 1 5))))
+    (let* ( (current (binlist-to-dec (subseq binlist 1 5)))
+            (rbinlist (subseq binlist 5)))
         (if (= (nth 0 binlist) 1)
-            (+ (ash current 4) (parse-literals-package (subseq binlist 5)))
-            (current))))
+            (let ((p (parse-literals-package rbinlist)))
+                (list
+                    (+ (ash current 4) (first p))
+                    (second p)))
+            (list current rbinlist))))
 
-(defun parse-subpackages (binlist len)
-    (append 
-        (parse-package (subseq binlist 1 (+ 1 len)))
-        (if (= 1 (nth 0 binlist))
-            (parse-subpackages (subseq binlist (+ 1 len)) len)
-            (list))))
+(defun parse-len-subpackages (binlist)
+    (let* ((p (parse-package binlist)))
+        (if p
+            (append (list (first p)) (parse-len-subpackages (second p)))
+            nil)))
 
-(defun parse-n-subpackages (binlist len n)
-    (append 
-        (parse-package (subseq binlist 1 (+ 1 len)))
-        (if (= 1 (nth 0 binlist))
-            (parse-subpackages (subseq binlist (+ 1 len)) len)
-            (list))))
+(defun parse-n-subpackages (binlist n)
+    (print (list "parse n subpackates" binlist n))
+    (if (= n 0)
+        nil
+        (let* ( (p (parse-package binlist))
+                (pp (parse-n-subpackages (second p) (- n 1))))
+            ;; (print (list "first" (first p) "second" (second p)))
+            (list
+                (append (list (first p)) (first pp))
+                (second pp)))))
 
 (defun parse-package (binlist)
-    (let* ( (version (binlist-to-dec (subseq binlist 0 3)))
-            (typeid  (binlist-to-dec (subseq binlist 3 6))))
-        (list version
+    (if (< (length binlist) 12)
+        nil
+        (let* ( (version (binlist-to-dec (subseq binlist 0 3)))
+                (typeid  (binlist-to-dec (subseq binlist 3 6)))
+                (sub nil)
+                (typ nil)
+                (rbinlist nil))
             (if (= typeid 4)
-                (parse-literal-package (subseq binlist 6))
-                (let* ( (I (nth 6 binlist))
-                        (len-bits    (if (= I 0) 15 11))
+                (let ((p (parse-literals-package (subseq binlist 6))))
+                    ;; (setq pack (first p))
+                    (setq rbinlist (second p))
+                    (setq typ 'literals)
+                    (setq sub (first p)))
+                (let*   ((I (nth 6 binlist))
+                        (len-bits (if (= I 0) 15 11))
                         (len (binlist-to-dec (subseq binlist 7 (+ 7 len-bits))))
-                        (rbinlist (subseq binlist (+ 7 len-bits))))
+                        (rrbinlist (subseq binlist (+ 7 len-bits))))
                     (if (= I 0)
-                        (parse-subpackages (subseq rbinlist 0 len))
-                        (parse-n-subpackages rbinlist 11 len)))))))
+                        (let ((p (parse-len-subpackages (subseq rrbinlist 0 len))))
+                            (setq rbinlist (subseq rrbinlist len))
+                            (setq typ 'len-sub)
+                            (setq sub p))
+                        (let ((p (parse-n-subpackages rrbinlist len)))
+                            ;; (setq pack (first p))
+                            (setq rbinlist (second p))
+                            (setq typ 'n-sub)
+                            (setq sub (first p))))))
+            (list (list version typ sub) rbinlist))))
 
-(print (load-data))
-(parse-package (load-data))
+(defparameter *packet* (first (parse-package (load-data))))
+;; (print (first (parse-package (load-data))))
+
+(defun sum-packet-version (packet)
+    (+ 
+        (first packet)
+        (if (listp (second packet))
+            (apply #'+
+                (mapcar
+                    #'sum-packet-version
+                    (second packet)))
+            0)))
+
+(print *packet*)
+;; (print (sum-packet-version *packet*))
+
+; A wrong: 22
