@@ -113,23 +113,35 @@
                             (subseq tree-l (+ i 4)))))
                 nil))))
 
+(defun sum2 (treea treeb)
+    (simplify
+        (append
+            (list #\[ )
+            (simplify treea)
+            (simplify treeb)
+            (list #\] ))))
+
 (defun problem1 (tree-ls)
     (let ((total
             (reduce 
-                (lambda (total x)
-                    (simplify
-                        (append
-                            (list #\[ )
-                            (simplify total)
-                            (simplify x)
-                            (list #\] )
-                        )))
+                #'sum2
                 (cdr tree-ls)
                 :initial-value (car tree-ls))))
         (print total)
         (magnitude total)))
 
+(defun problem2 (tree-ls)
+    (apply #'max
+        (apply #'append
+        (apply #'append
+            (loop for i in (alexandria:iota (length tree-ls)) collect
+                (loop for j in (alexandria:iota (- (length tree-ls) i 1) :start (+ i 1)) collect
+                    (list
+                        (magnitude (sum2 (nth i tree-ls) (nth j tree-ls)))
+                        (magnitude (sum2 (nth j tree-ls) (nth i tree-ls))))))))))
+
 ;; Too high: 9328
+;; correct A: 4435
 
 (defun load-lists ()
     (mapcar 
@@ -137,5 +149,6 @@
         (load-data)))
 
 (print (problem1 (load-lists)))
+(print (problem2 (load-lists)))
 
 ;; (mapcar #'test (load-data))
