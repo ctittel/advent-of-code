@@ -1,7 +1,6 @@
 (load "~/quicklisp/setup.lisp")
 (require "split-sequence")
 (require "alexandria")
-(require "cl-heap")
 
 (defun load-data() 
         (let* (
@@ -43,14 +42,39 @@
 (defun type-id (binlist)
     (binlist-to-dec (subseq binlist 3 6)))
 
+(defun parse-literals-package (binlist)
+    (let* ((current (binlist-to-dec (subseq binlist 1 5))))
+        (if (= (nth 0 binlist) 1)
+            (+ (ash current 4) (parse-literals-package (subseq binlist 5)))
+            (current))))
+
+(defun parse-subpackages (binlist len)
+    (append 
+        (parse-package (subseq binlist 1 (+ 1 len)))
+        (if (= 1 (nth 0 binlist))
+            (parse-subpackages (subseq binlist (+ 1 len)) len)
+            (list))))
+
+(defun parse-n-subpackages (binlist len n)
+    (append 
+        (parse-package (subseq binlist 1 (+ 1 len)))
+        (if (= 1 (nth 0 binlist))
+            (parse-subpackages (subseq binlist (+ 1 len)) len)
+            (list))))
+
 (defun parse-package (binlist)
     (let* ( (version (binlist-to-dec (subseq binlist 0 3)))
             (typeid  (binlist-to-dec (subseq binlist 3 6))))
-        (if ((= typeid 4))
-                    
-        
-        
-)))
-)
+        (list version
+            (if (= typeid 4)
+                (parse-literal-package (subseq binlist 6))
+                (let* ( (I (nth 6 binlist))
+                        (len-bits    (if (= I 0) 15 11))
+                        (len (binlist-to-dec (subseq binlist 7 (+ 7 len-bits))))
+                        (rbinlist (subseq binlist (+ 7 len-bits))))
+                    (if (= I 0)
+                        (parse-subpackages (subseq rbinlist 0 len))
+                        (parse-n-subpackages rbinlist 11 len)))))))
 
 (print (load-data))
+(parse-package (load-data))
