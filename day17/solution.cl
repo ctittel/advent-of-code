@@ -12,16 +12,16 @@
         (>= (y xy) -97)
         (<= (y xy) -63)))
 
-(defun decrease-towards-0 (x)
-    (cond   ((> x 0) (- x 1))
-            ((< x 0) (+ x 1))
-            (t 0)))
+;; (defun decrease-towards-0 (x)
+;;     (cond   ((> x 0) (- x 1))
+;;             ((< x 0) (+ x 1))
+;;             (t 0)))
 
-(defun forward-vels (vels)
-    (list (decrease-towards-0 (x vels)) (- (y vels) 1)))
+;; (defun forward-vels (vels)
+;;     (list (decrease-towards-0 (x vels)) (- (y vels) 1)))
 
-(defun forward-xy (xy vels)
-    (list (+ (x xy) (x vels)) (+ (y xy) (y vels))))
+;; (defun forward-xy (xy vels)
+;;     (list (+ (x xy) (x vels)) (+ (y xy) (y vels))))
 
 ; (defun will-hit (xy vels)
 ;     (cond   ((> (x xy) 273) 'x-to-big)
@@ -75,5 +75,7 @@
                     (let ((n (x-will-hit vx 0 0)))
                         (if n (count-vy-possibilities n) nil)))))))
 
-(print (count-vy-possibilities 23))
-(print (problem2)) ; 45 is wrong
+
+
+;; (print (count-vy-possibilities 23))
+;; (print (problem2)) ; wrong: 45 43
