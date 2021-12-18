@@ -53,9 +53,9 @@
             nil)))
 
 (defun parse-n-subpackages (binlist n)
-    (print (list "parse n subpackates" binlist n))
+    ;; (print (list "parse n subpackates" binlist n))
     (if (= n 0)
-        nil
+        (list nil binlist)
         (let* ( (p (parse-package binlist))
                 (pp (parse-n-subpackages (second p) (- n 1))))
             ;; (print (list "first" (first p) "second" (second p)))
@@ -64,7 +64,7 @@
                 (second pp)))))
 
 (defun parse-package (binlist)
-    (if (< (length binlist) 12)
+    (if (< (length binlist) 11)
         nil
         (let* ( (version (binlist-to-dec (subseq binlist 0 3)))
                 (typeid  (binlist-to-dec (subseq binlist 3 6)))
@@ -91,7 +91,7 @@
                             (setq rbinlist (second p))
                             (setq typ 'n-sub)
                             (setq sub (first p))))))
-            (list (list version typ sub) rbinlist))))
+            (list (list version sub) rbinlist))))
 
 (defparameter *packet* (first (parse-package (load-data))))
 ;; (print (first (parse-package (load-data))))
@@ -107,6 +107,6 @@
             0)))
 
 (print *packet*)
-;; (print (sum-packet-version *packet*))
+(print (sum-packet-version *packet*))
 
-; A wrong: 22
+; A wrong: 22, 862 too low; 901 is solution
