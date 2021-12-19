@@ -39,6 +39,7 @@
                 (list (calc-dist (nth i window) (nth j window)) (list (nth i window) (nth j window)))))))
 
 (defun dict-append (dict k l)
+    ;; (print (list "dict-append" dict k l))
     (setf (gethash k dict) (append (gethash k dict) l)))
 
 (defun dict-keys (dict)
@@ -54,16 +55,17 @@
             :key #'car))))
 
 (defun get-correspodences (ref window)
+    ;; (print (list "get-correspodences" ref window))
     (let* ((poss (make-hash-table :test 'equal)))
         (mapcar 
             (lambda (x)
-                (let* (  (dist (first x))
-                        (wpoints (second x))
-                        (rpoints (gethash dist ref)))
-                    (if rpoints
+                (let* ( (dist (first x))
+                        (win-points (second x))
+                        (ref-points (gethash dist ref)))
+                    (if ref-points
                         (let ()
-                            (dict-append poss (first wpoints) rpoints)
-                            (dict-append poss (second wpoints) rpoints))
+                            (dict-append poss (first win-points) ref-points)
+                            (dict-append poss (second win-points) ref-points))
                         nil)))
             (calc-dists window))
         (if (> (length (dict-keys poss)) 2)
@@ -119,7 +121,7 @@
 ;; correspodences: list (point in current CRS; point in CRS 0)
 ;; returns the transform, e.g. (-X, +Z, -Y) + the offset vector
 (defun find-transform (correspodences)
-    (print (list "correspodences" correspodences))
+    ;; (print (list "correspodences" correspodences))
     (loop for transform in (get-transforms) do
         (let* ((transformed
                 (mapcar
@@ -130,24 +132,36 @@
                         #'vector-
                         transformed
                         (mapcar #'second correspodences))))
-            (print (list "transformed" transformed "offsets" offsets))
-            (if (every
-                    (lambda (x) (equal x (first offsets)))
-                    offsets)
+            ;; (print (list "transformed" transformed "offsets" offsets))
+            (if (and (every
+                        (lambda (x) (equal x (first offsets)))
+                        offsets)
+                    (>= (length correspodences) 3))
                 (return (list transform (second offsets)))
                 nil))))
+
+(defun build-ref (points)
+    (let ((ref (make-hash-table :test 'equal)))
+     (mapcar
+        (lambda (dist) (setf (gethash (first dist) ref) (second dist)))
+        (calc-dists points))
+    ref))
 
 (let*
     (
         (data (load-data))
-        (*ref* (make-hash-table :test 'equal))
+        (known-beacons (car data))
+        (known-transforms (list (list 'X 'Y 'Z) (list 0 0 0)))
+        (*ref* (build-ref known-beacons)) ; contains distances and corresponding points
     )
 
+    (setq data (cdr data))
 
     ;; (mapcar
     ;;     (lambda (x) (setf (gethash (first x) *ref*) (second x)))
     ;;     (calc-dists (car data)))
-    (print (get-correspodences *ref* (nth 2 data)))
+
+    ;; (print (get-correspodences *ref* (nth 2 data)))
     (print (find-transform (get-correspodences *ref* (nth 2 data))))
     ;; (loop for window in data do
     ;;     ;; (print window)))
@@ -157,6 +171,6 @@
 
 ;; (print (majority-item (list 1 23 3 "test" "test" "test" 1 5 2 0 0 0 "test" "test" "test" "test" "Test" 0 1 1 1)))
 
-(print (get-transforms))
+;; (print (get-transforms))
 
-(print (apply-transform (list '-Z '-X '+Y) (list 10 20 30)))
+;; (print (apply-transform (list '-Z '-X '+Y) (list 10 20 30)))
