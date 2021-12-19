@@ -22,8 +22,9 @@
 
 ;; --- Parsing input done ---
 
+(defparameter *min-overlap* 12)
+
 (defun calc-dist (xyz1 xyz2)
-    ;; (sqrt
     (apply #'+
         (mapcar
             (lambda (x) (* x x))
@@ -44,7 +45,6 @@
      (mapcar
         (lambda (dist)
             (dict-append ref (first dist) (second dist)))
-            ;; (setf (gethash (first dist) ref) (second dist)))
         (calc-dists points))
     ref))
 
@@ -56,29 +56,22 @@
 
 (defun majority-item (l)
     (loop for item in l do
-        (if (>= (count item l) (/ (length l) 2))
+        (if (>= (count item l) (ash (length l) -1))
             (return item)
             nil)))
 
-    ;; (second (car 
-    ;;     (print (sort
-    ;;         (mapcar
-    ;;             (lambda (x) (list (count x l :test 'equal) x))
-    ;;             l)
-    ;;         #'>
-    ;;         :key #'car)))))
-
 ;; returns: list of pairs (CRS X point , CRS 0 point)
-(defun get-correspodences (dist->CRS0pts window)
-    (let* ( (CRSXpt->CRS0pts (make-hash-table :test 'equal)))
+(defun get-correspodences (CRS0pts window)
+    (let* ( (dist->CRS0pts (build-ref CRS0pts))
+            (Xpt->0pts (make-hash-table :test 'equal)))
         (loop for (dist CRSXpts) in (calc-dists window ) do
             (loop for CRS0pt in (gethash dist dist->CRS0pts ) do
-                (dict-append CRSXpt->CRS0pts (first CRSXpts) (list CRS0pt))
-                (dict-append CRSXpt->CRS0pts (second CRSXpts) (list CRS0pt))))
-        (if (> (length (alexandria:hash-table-keys CRSXpt->CRS0pts)) 10)
-            (loop for Xpt  in (alexandria:hash-table-keys CRSXpt->CRS0pts)
-                when (> (length (gethash Xpt CRSXpt->CRS0pts)) 10)
-                    collect (list Xpt (majority-item (gethash Xpt CRSXpt->CRS0pts))))
+                (dict-append Xpt->0pts (first CRSXpts) (list CRS0pt))
+                (dict-append Xpt->0pts (second CRSXpts) (list CRS0pt))))
+        (if (>= (length (alexandria:hash-table-keys Xpt->0pts)) *min-overlap*)
+            (loop for Xpt  in (alexandria:hash-table-keys Xpt->0pts)
+                when (and (>= (length (gethash Xpt Xpt->0pts)) *min-overlap*) (majority-item (gethash Xpt Xpt->0pts)))
+                    collect (list Xpt (majority-item (gethash Xpt Xpt->0pts))))
             nil)))
 
 (defun get-transforms-aux (symbols)
@@ -107,12 +100,6 @@
 (defun z (xyz) (nth 2 xyz))
 
 (defun apply-transform (transform xyz)
-    (if (or
-            (null transform)
-            (null xyz)
-            (position 'nil transform)
-            (position 'nil xyz))
-        (error (list "ERROR IN apply-transform INVALID TRANSFORM" transform xyz)))
     (mapcar
         (lambda (x)
             (cond
@@ -130,20 +117,25 @@
         (lambda (xyz) (mapcar #'+ (apply-transform transform xyz) offset))
         l))
 
+(defun vector- (A B)
+    (mapcar #'- A B))
+
 ;; correspodences: list of pairs (point in current CRSX; corresponding point in CRS0)
 ;; returns the transform, e.g. (-X, +Z, -Y) + the offset vector
 (defun find-transform-offset (correspodences)
+    (print (list "find-transform-offset" correspodences))
     (let (  (CRSXpts (mapcar #'first correspodences))
             (CRS0pts (mapcar #'second correspodences)))
         (loop for transform in (get-transforms) do
-            (let* ( (offset (mapcar #'- (car CRS0pts) (apply-transform transform (car CRSXpts))))
-                    (CRSX0pts (apply-transform-offset-l transform offset CRSXpts)))
+            (let* ( (CRSX-transformed (mapcar 
+                                        (lambda (Xpt) (apply-transform transform Xpt)) 
+                                        CRSXpts))
+                    (offsets (mapcar #'vector- CRS0pts CRSX-transformed)))
                 (if (every
-                        #'equal
-                        CRS0pts
-                        CRSX0pts)
-                    (return (list transform offset))
-                    "DONT RETURN THIS PLEASE")))))
+                        (lambda (offset) (equal offset (car offsets)))
+                        offsets)
+                    (return (list transform (car offsets)))
+                    nil)))))
 
 (defun merge-lists (a b)
     (remove-duplicates (append a b) :test 'equal))
@@ -153,37 +145,36 @@
 (defun merge-windows (known-points windows)
     (print (list "merge-windows" "known-points:" (length known-points) "windows:" (length windows)))
     (if windows
-        (let ((ref (build-ref known-points)))
-            (loop for i in (alexandria:iota (length windows)) do
-                (let* ( (current-window (nth i windows))
-                        (correspodences (get-correspodences ref current-window)))
-                    (if correspodences
-                        (let* ( (to (find-transform-offset correspodences))
-                                (transform (first to))
-                                (offset (second to)))
-                            (if transform
-                                (return 
-                                    (merge-windows
-                                        (merge-lists
-                                            known-points
-                                            (apply-transform-offset-l transform offset current-window))
-                                        (append (subseq windows 0 i) (subseq windows (+ i 1)))))
-                                nil)))))
-            ;; (print (list "LOOP DONE REMAINING WINDOW=" windows))
-            )
+        (loop for i in (alexandria:iota (length windows)) do
+            (print (list "loop" i))
+            (let* ( (current-window (nth i windows))
+                    (correspodences (get-correspodences known-points current-window)))
+                (print (list "correspodences" correspodences))
+                (if (and correspodences (>= (length correspodences) *min-overlap*))
+                    (let* ( (to (find-transform-offset correspodences))
+                            (transform (first to))
+                            (offset (second to)))
+                        (if transform
+                            (return 
+                                (merge-windows
+                                    (merge-lists
+                                        known-points
+                                        (apply-transform-offset-l transform offset current-window))
+                                    (append (subseq windows 0 i) (subseq windows (+ i 1)))))
+                            (print (list "No transform? transform is" transform offset))))
+                    (print "too few correspodences"))))
         known-points))
 
 (let*
     (
         (data (load-data))
         (known-beacons (car data))
-        (known-transforms (list (list 'X 'Y 'Z) (list 0 0 0)))
-        (*ref* (build-ref known-beacons)) ; contains distances and corresponding points
     )
+    (print (length data))
 
-    (setq data (cdr data))
+    ;; (setq data (cdr data))
 
-    (print (merge-windows known-beacons data))
+    (print (merge-windows (car data) (cdr data)))
 
     ;; (mapcar
     ;;     (lambda (x) (setf (gethash (first x) *ref*) (second x)))
@@ -197,4 +188,4 @@
 
 )
 
-;; A wrong: 311 (too low); 325 (too low)
+;; A wrong: 311 (too low); 325 (too low); 347 (too low)
