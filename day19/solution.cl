@@ -20,14 +20,15 @@
 (defun parse-coord (line)
     (mapcar #'parse-integer (split-sequence:split-sequence #\, line)))
 
-(defun calc-dist (xyz1 xyz2)
-    (sqrt
-        (apply #'+
-            (mapcar
-                (lambda (x) (* x x))
-                (mapcar #'- xyz1 xyz2)))))
-
 ;; --- Parsing input done ---
+
+(defun calc-dist (xyz1 xyz2)
+    ;; (sqrt
+    (apply #'+
+        (mapcar
+            (lambda (x) (* x x))
+            (mapcar #'- xyz1 xyz2))))
+
 
 (defun iota (start stop)
     (alexandria:iota (- stop start) :start start))
@@ -38,6 +39,15 @@
             (loop for j in (iota (+ i 1) (length window)) collect
                 (list (calc-dist (nth i window) (nth j window)) (list (nth i window) (nth j window)))))))
 
+(defun build-ref (points)
+    (let ((ref (make-hash-table :test 'equal)))
+     (mapcar
+        (lambda (dist)
+            (dict-append ref (first dist) (second dist)))
+            ;; (setf (gethash (first dist) ref) (second dist)))
+        (calc-dists points))
+    ref))
+
 (defun dict-append (dict k l)
     (setf (gethash k dict) (append (gethash k dict) l)))
 
@@ -45,13 +55,18 @@
     (alexandria:hash-table-keys dict))
 
 (defun majority-item (l)
-    (second (car 
-        (sort
-            (mapcar
-                (lambda (x) (list (count x l :test 'equal) x))
-                l)
-            #'>
-            :key #'car))))
+    (loop for item in l do
+        (if (>= (count item l) (/ (length l) 2))
+            (return item)
+            nil)))
+
+    ;; (second (car 
+    ;;     (print (sort
+    ;;         (mapcar
+    ;;             (lambda (x) (list (count x l :test 'equal) x))
+    ;;             l)
+    ;;         #'>
+    ;;         :key #'car)))))
 
 ;; returns: (list of points in CRS0, list of corresponding points in custom CRSX)
 (defun get-correspodences (ref window)
@@ -73,9 +88,6 @@
                         (dict-keys poss))
                 (dict-keys poss))
             nil)))
-
-(defun get-vector (A B)
-    (mapcar #'- B A))
 
 (defun get-transforms-aux (symbols)
     (if symbols
@@ -129,29 +141,17 @@
 ;; correspodences: list (point in current CRS; point in CRS 0)
 ;; returns the transform, e.g. (-X, +Z, -Y) + the offset vector
 (defun find-transform-offset (CRS0 CRSX)
-    (if (< (length CRS0) 2)
+    (if (< (length CRS0) 12)
         nil
         (loop for transform in (get-transforms) do
-            (let ((offsets 
-                    (mapcar
-                        (lambda (x0 xX)
-                            (mapcar #'- x0 (apply-transform transform xX)))
-                        CRS0
-                        CRSX)))
+            (let* ( (offset (mapcar #'- (second CRS0) (apply-transform transform (second CRSX))))
+                    (CRSX->0 (apply-transform-offset-l transform offset CRSX)))
                 (if (every
-                        (lambda (off) (equal off (first offsets)))
-                        offsets)
-                    (return (list transform (first offsets)))
-                    nil)))))
-
-(defun build-ref (points)
-    (let ((ref (make-hash-table :test 'equal)))
-     (mapcar
-        (lambda (dist)
-            (if (position nil dist) (error "ERROR in build-ref") nil) 
-            (setf (gethash (first dist) ref) (second dist)))
-        (calc-dists points))
-    ref))
+                        #'equal
+                        CRS0
+                        CRSX->0)
+                    (return (list transform offset))
+                    "DONT RETURN THIS PLEASE")))))
 
 (defun merge-lists (a b)
     (remove-duplicates (append a b) :test 'equal))
@@ -176,7 +176,9 @@
                                             known-points
                                             (apply-transform-offset-l transform offset current-window))
                                         (append (subseq windows 0 i) (subseq windows (+ i 1)))))
-                                nil))))))
+                                nil)))))
+            ;; (print (list "LOOP DONE REMAINING WINDOW=" windows))
+            )
         known-points))
 
 (let*
