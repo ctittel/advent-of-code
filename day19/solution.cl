@@ -140,7 +140,7 @@
 
 ;; input: list of known points in CRS 0, unmatched windows in different CRS's
 ;; output: all points in CRS 0
-(defun merge-windows (known-points windows)
+(defun merge-windows (known-points windows offsets)
     (print (list "merge-windows" "known-points:" (length known-points) "windows:" (length windows)))
     (if windows
         (loop for i in (alexandria:iota (length windows)) do
@@ -156,18 +156,39 @@
                                     (merge-lists
                                         known-points
                                         (apply-transform-offset-l transform offset current-window))
-                                    (append (subseq windows 0 i) (subseq windows (+ i 1)))))
+                                    (append (subseq windows 0 i) (subseq windows (+ i 1)))
+                                    (append offsets (list offset))))
                             nil))
                     nil)))
-        known-points))
+        (list known-points offsets)))
+
+(defun manhattan-dist (A B)
+    (apply #'+
+        (mapcar 
+            #'abs 
+            (mapcar #'- A B))))
+
+(defun problem2 (offsets)
+    (if (= 2 (length offsets))
+        (apply #'manhattan-dist offsets)
+        (max
+            (apply 
+                #'max
+                (mapcar
+                    (lambda (off) (manhattan-dist (car offsets) off))
+                    (cdr offsets)))
+            (problem2 (cdr offsets)))))
 
 (let*
     (
         (data (load-data))
-        (known-beacons (car data))
+        (result (merge-windows (car data) (cdr data) (list (list 0 0 0))))
+        (beacons (first result))
+        (offsets (second result))
     )
     (print (list "Number of datas:" (length data)))
-    (print (length (merge-windows (car data) (cdr data))))
+    (print (length beacons))
+    (print (problem2 offsets))
 )
 
 ;; A wrong: 311 (too low); 325 (too low); 347 (too low); correct: 491
