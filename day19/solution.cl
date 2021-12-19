@@ -101,14 +101,14 @@
 
 (defun apply-transform (transform xyz)
     (mapcar
-        (lambda (x)
+        (lambda (symbol)
             (cond
-                ((equal x '+X) (x xyz))
-                ((equal x '-X) (- (x xyz)))
-                ((equal x '+Y) (y xyz))
-                ((equal x '-Y) (- (y xyz)))
-                ((equal x '+Z) (z xyz))
-                ((equal x '-Z) (- (z xyz)))
+                ((equal symbol '+X) (x xyz))
+                ((equal symbol '-X) (- (x xyz)))
+                ((equal symbol '+Y) (y xyz))
+                ((equal symbol '-Y) (- (y xyz)))
+                ((equal symbol '+Z) (z xyz))
+                ((equal symbol '-Z) (- (z xyz)))
                 (t (list "ERROR INVALID" x))))
         transform))
 
@@ -135,7 +135,7 @@
                         (lambda (offset) (equal offset (car offsets)))
                         offsets)
                     (return (list transform (car offsets)))
-                    nil)))))
+                    (print (list "no transform for offsets" offsets)))))))
 
 (defun merge-lists (a b)
     (remove-duplicates (append a b) :test 'equal))
@@ -150,7 +150,7 @@
             (let* ( (current-window (nth i windows))
                     (correspodences (get-correspodences known-points current-window)))
                 (print (list "correspodences" correspodences))
-                (if (and correspodences (>= (length correspodences) *min-overlap*))
+                (if (and correspodences); (>= (length correspodences) *min-overlap*))
                     (let* ( (to (find-transform-offset correspodences))
                             (transform (first to))
                             (offset (second to)))
@@ -176,6 +176,9 @@
 
     (print (merge-windows (car data) (cdr data)))
 
+    ;; (print (get-transforms))
+    ;; (print (length (get-transforms)))
+
     ;; (mapcar
     ;;     (lambda (x) (setf (gethash (first x) *ref*) (second x)))
     ;;     (calc-dists (car data)))
@@ -188,4 +191,4 @@
 
 )
 
-;; A wrong: 311 (too low); 325 (too low); 347 (too low)
+;; A wrong: 311 (too low); 325 (too low); 347 (too low); correct: 491
