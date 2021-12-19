@@ -76,20 +76,79 @@
 (defun get-vector (A B)
     (mapcar #'- B A))
 
-(defun transform-corr (correspodences)
-    (let ((transform (apply #'get-vector (first correspodences))))
-        (loop for corr in correspodences do
-            (print (list transform (apply #'get-vector corr))))))
+(defun get-transforms-aux (symbols)
+    (if symbols
+        (apply #'append
+            (loop for i in (alexandria:iota (length symbols)) collect
+                (mapcar
+                    (lambda (x)
+                        (append (list (nth i symbols)) x))
+                    (get-transforms-aux (append (subseq symbols 0 i) (subseq symbols (+ i 1)))))))
+        (list nil)))
+
+(defun get-transforms ()
+    (append
+        (get-transforms-aux (list '+X '+Y '+Z))
+        (get-transforms-aux (list '-X '+Y '+Z))
+        (get-transforms-aux (list '+X '-Y '+Z))
+        (get-transforms-aux (list '+X '+Y '-Z))
+        (get-transforms-aux (list '-X '-Y '+Z))
+        (get-transforms-aux (list '-X '+Y '-Z))
+        (get-transforms-aux (list '+X '-Y '-Z))
+        (get-transforms-aux (list '-X '-Y '-Z))))
+
+(defun x (xyz) (nth 0 xyz))
+(defun y (xyz) (nth 1 xyz))
+(defun z (xyz) (nth 2 xyz))
+
+(defun apply-transform (transform xyz)
+    (mapcar
+        (lambda (x)
+            (cond
+                ((equal x '+X) (x xyz))
+                ((equal x '-X) (- (x xyz)))
+                ((equal x '+Y) (y xyz))
+                ((equal x '-Y) (- (y xyz)))
+                ((equal x '+Z) (z xyz))
+                ((equal x '-Z) (- (z xyz)))))
+        transform))
+
+(defun vector- (A B)
+    (mapcar #'- B A))
+
+;; correspodences: list (point in current CRS; point in CRS 0)
+;; returns the transform, e.g. (-X, +Z, -Y) + the offset vector
+(defun find-transform (correspodences)
+    (print (list "correspodences" correspodences))
+    (loop for transform in (get-transforms) do
+        (let* ((transformed
+                (mapcar
+                    (lambda (x) (apply-transform transform x))
+                    (mapcar #'first correspodences)))
+                (offsets
+                    (mapcar
+                        #'vector-
+                        transformed
+                        (mapcar #'second correspodences))))
+            (print (list "transformed" transformed "offsets" offsets))
+            (if (every
+                    (lambda (x) (equal x (first offsets)))
+                    offsets)
+                (return (list transform (second offsets)))
+                nil))))
 
 (let*
     (
         (data (load-data))
         (*ref* (make-hash-table :test 'equal))
     )
-    (mapcar
-        (lambda (x) (setf (gethash (first x) *ref*) (second x)))
-        (calc-dists (car data)))
-    (transform-corr (get-correspodences *ref* (nth 2 data)))
+
+
+    ;; (mapcar
+    ;;     (lambda (x) (setf (gethash (first x) *ref*) (second x)))
+    ;;     (calc-dists (car data)))
+    (print (get-correspodences *ref* (nth 2 data)))
+    (print (find-transform (get-correspodences *ref* (nth 2 data))))
     ;; (loop for window in data do
     ;;     ;; (print window)))
         ;; (print (calc-dists window))))
@@ -97,3 +156,7 @@
 )
 
 ;; (print (majority-item (list 1 23 3 "test" "test" "test" 1 5 2 0 0 0 "test" "test" "test" "test" "Test" 0 1 1 1)))
+
+(print (get-transforms))
+
+(print (apply-transform (list '-Z '-X '+Y) (list 10 20 30)))
