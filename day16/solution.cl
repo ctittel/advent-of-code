@@ -36,15 +36,17 @@
         (lambda (total x) (+ (* total 2) x))
         binlist))
 
-(defun parse-literals-package (binlist)
-    (let* ( (current (binlist-to-dec (subseq binlist 1 5)))
-            (rbinlist (subseq binlist 5)))
+(defun parse-literals-package-aux (binlist total)
+    (let* ( (current-bits (subseq binlist 1 5))
+            (current (binlist-to-dec current-bits))
+            (rbinlist (subseq binlist 5))
+            (new-total (+ (* total 16) current)))
         (if (= (nth 0 binlist) 1)
-            (let ((p (parse-literals-package rbinlist)))
-                (list
-                    (+ (ash current 4) (first p))
-                    (second p)))
-            (list current rbinlist))))
+            (parse-literals-package-aux rbinlist new-total)
+            (list new-total rbinlist))))
+
+(defun parse-literals-package (binlist)
+    (parse-literals-package-aux binlist 0))
 
 (defun parse-len-subpackages (binlist)
     (let* ((p (parse-package binlist)))
@@ -53,12 +55,10 @@
             nil)))
 
 (defun parse-n-subpackages (binlist n)
-    ;; (print (list "parse n subpackates" binlist n))
     (if (= n 0)
         (list nil binlist)
         (let* ( (p (parse-package binlist))
                 (pp (parse-n-subpackages (second p) (- n 1))))
-            ;; (print (list "first" (first p) "second" (second p)))
             (list
                 (append (list (first p)) (first pp))
                 (second pp)))))
@@ -73,7 +73,6 @@
                 (rbinlist nil))
             (if (= typeid 4)
                 (let ((p (parse-literals-package (subseq binlist 6))))
-                    ;; (setq pack (first p))
                     (setq rbinlist (second p))
                     (setq typ 'literals)
                     (setq sub (first p)))
@@ -87,14 +86,12 @@
                             (setq typ 'len-sub)
                             (setq sub p))
                         (let ((p (parse-n-subpackages rrbinlist len)))
-                            ;; (setq pack (first p))
                             (setq rbinlist (second p))
                             (setq typ 'n-sub)
                             (setq sub (first p))))))
             (list (list version typeid sub) rbinlist))))
 
 (defparameter *packet* (first (parse-package (load-data))))
-;; (print (first (parse-package (load-data))))
 
 (defun sum-packet-version (packet)
     (+ 
@@ -107,11 +104,9 @@
             0)))
 
 (defun map-to-subs (func packet)
-    ;; (print packet)
     (apply func (mapcar #'process-packet (third packet))))
 
 (defun process-packet (packet)
-    ;; (print packet)
     (let (  (typid (second packet))
             (content (third packet)))
         (cond 
@@ -124,9 +119,9 @@
             ((= typid 6) (if (< (process-packet (first content)) (process-packet (second content))) 1 0))
             ((= typid 7) (if (= (process-packet (first content)) (process-packet (second content))) 1 0)))))
 
-;; (print *packet*)
+(print *packet*)
 (print (sum-packet-version *packet*))
 (print (process-packet *packet*))
 
 ; A wrong: 22, 862 too low; 901 is solution
-; B wrong: 8709715593 too low; 
+; B wrong: 8709715593 too low; 110434737925 correct
