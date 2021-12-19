@@ -91,7 +91,7 @@
                             (setq rbinlist (second p))
                             (setq typ 'n-sub)
                             (setq sub (first p))))))
-            (list (list version sub) rbinlist))))
+            (list (list version typeid sub) rbinlist))))
 
 (defparameter *packet* (first (parse-package (load-data))))
 ;; (print (first (parse-package (load-data))))
@@ -99,14 +99,34 @@
 (defun sum-packet-version (packet)
     (+ 
         (first packet)
-        (if (listp (second packet))
+        (if (listp (third packet))
             (apply #'+
                 (mapcar
                     #'sum-packet-version
-                    (second packet)))
+                    (third packet)))
             0)))
 
-(print *packet*)
+(defun map-to-subs (func packet)
+    ;; (print packet)
+    (apply func (mapcar #'process-packet (third packet))))
+
+(defun process-packet (packet)
+    ;; (print packet)
+    (let (  (typid (second packet))
+            (content (third packet)))
+        (cond 
+            ((= typid 0) (map-to-subs #'+ packet))
+            ((= typid 1) (map-to-subs #'* packet))
+            ((= typid 2) (map-to-subs #'min packet))
+            ((= typid 3) (map-to-subs #'max packet))
+            ((= typid 4) content)
+            ((= typid 5) (if (> (process-packet (first content)) (process-packet (second content))) 1 0))
+            ((= typid 6) (if (< (process-packet (first content)) (process-packet (second content))) 1 0))
+            ((= typid 7) (if (= (process-packet (first content)) (process-packet (second content))) 1 0)))))
+
+;; (print *packet*)
 (print (sum-packet-version *packet*))
+(print (process-packet *packet*))
 
 ; A wrong: 22, 862 too low; 901 is solution
+; B wrong: 8709715593 too low; 
