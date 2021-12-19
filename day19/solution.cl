@@ -68,25 +68,17 @@
     ;;         #'>
     ;;         :key #'car)))))
 
-;; returns: (list of points in CRS0, list of corresponding points in custom CRSX)
-(defun get-correspodences (ref window)
-    (let* ((poss (make-hash-table :test 'equal)))
-        (mapcar 
-            (lambda (x)
-                (let* ( (dist (first x))
-                        (win-points (second x))
-                        (ref-points (gethash dist ref)))
-                    (if ref-points
-                        (let ()
-                            (dict-append poss (first win-points) ref-points)
-                            (dict-append poss (second win-points) ref-points))
-                        nil)))
-            (calc-dists window))
-        (if (> (length (dict-keys poss)) 2)
-            (list
-                (mapcar (lambda (key) (majority-item (gethash key poss)))
-                        (dict-keys poss))
-                (dict-keys poss))
+;; returns: list of pairs (CRS X point , CRS 0 point)
+(defun get-correspodences (dist->CRS0pts window)
+    (let* ( (CRSXpt->CRS0pts (make-hash-table :test 'equal)))
+        (loop for (dist CRSXpts) in (calc-dists window ) do
+            (loop for CRS0pt in (gethash dist dist->CRS0pts ) do
+                (dict-append CRSXpt->CRS0pts (first CRSXpts) (list CRS0pt))
+                (dict-append CRSXpt->CRS0pts (second CRSXpts) (list CRS0pt))))
+        (if (> (length (alexandria:hash-table-keys CRSXpt->CRS0pts)) 10)
+            (loop for Xpt  in (alexandria:hash-table-keys CRSXpt->CRS0pts)
+                when (> (length (gethash Xpt CRSXpt->CRS0pts)) 10)
+                    collect (list Xpt (majority-item (gethash Xpt CRSXpt->CRS0pts))))
             nil)))
 
 (defun get-transforms-aux (symbols)
@@ -120,7 +112,7 @@
             (null xyz)
             (position 'nil transform)
             (position 'nil xyz))
-        (error "ERROR IN apply-transform INVALID TRANSFORM"))
+        (error (list "ERROR IN apply-transform INVALID TRANSFORM" transform xyz)))
     (mapcar
         (lambda (x)
             (cond
@@ -138,18 +130,18 @@
         (lambda (xyz) (mapcar #'+ (apply-transform transform xyz) offset))
         l))
 
-;; correspodences: list (point in current CRS; point in CRS 0)
+;; correspodences: list of pairs (point in current CRSX; corresponding point in CRS0)
 ;; returns the transform, e.g. (-X, +Z, -Y) + the offset vector
-(defun find-transform-offset (CRS0 CRSX)
-    (if (< (length CRS0) 12)
-        nil
+(defun find-transform-offset (correspodences)
+    (let (  (CRSXpts (mapcar #'first correspodences))
+            (CRS0pts (mapcar #'second correspodences)))
         (loop for transform in (get-transforms) do
-            (let* ( (offset (mapcar #'- (second CRS0) (apply-transform transform (second CRSX))))
-                    (CRSX->0 (apply-transform-offset-l transform offset CRSX)))
+            (let* ( (offset (mapcar #'- (car CRS0pts) (apply-transform transform (car CRSXpts))))
+                    (CRSX0pts (apply-transform-offset-l transform offset CRSXpts)))
                 (if (every
                         #'equal
-                        CRS0
-                        CRSX->0)
+                        CRS0pts
+                        CRSX0pts)
                     (return (list transform offset))
                     "DONT RETURN THIS PLEASE")))))
 
@@ -166,7 +158,7 @@
                 (let* ( (current-window (nth i windows))
                         (correspodences (get-correspodences ref current-window)))
                     (if correspodences
-                        (let* ( (to (apply #'find-transform-offset correspodences))
+                        (let* ( (to (find-transform-offset correspodences))
                                 (transform (first to))
                                 (offset (second to)))
                             (if transform
@@ -205,11 +197,4 @@
 
 )
 
-;; (print (majority-item (list 1 23 3 "test" "test" "test" 1 5 2 0 0 0 "test" "test" "test" "test" "Test" 0 1 1 1)))
-
-;; (print (get-transforms))
-
-;; (print (apply-transform (list '-Z '-X '+Y) (list 10 20 30)))
-
-
-;; A wrong: 311 (too low)
+;; A wrong: 311 (too low); 325 (too low)
