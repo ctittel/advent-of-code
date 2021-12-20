@@ -24,7 +24,7 @@
 (defparameter *algo* (load-algo))
 
 (defun binlist-to-num (binlist)
-    (binlist-to-num-aux (reverse binlist) 0))
+    (binlist-to-num-aux binlist 0))
 
 (defun binlist-to-num-aux (binlist current)
     (if binlist
@@ -56,32 +56,47 @@
                     (get-window-coords xy))))
 
 ; append 0s to all sides
-(defun buffer-img (n img)
-    (print (list "buffer-img" img))
+(defun add-buffers (n symbol img)
+    ;; (print (list "buffer-img" img))
     (if (= n 0)
         img
-        (buffer-img
+        (add-buffers
             (- n 1)
+            symbol
             (mapcar
-                (lambda (line) (append (list 0) line (list 0)))
+                (lambda (line) (append (list symbol) line (list symbol)))
                 (append
-                    (list (make-list (length (car img)) :initial-element 0))
+                    (list (make-list (length (car img)) :initial-element symbol))
                     img
-                    (list (make-list (length (car img)) :initial-element 0)))))))
+                    (list (make-list (length (car img)) :initial-element symbol)))))))
+
+(defun remove-buffers (n img)
+    (if (= n 0)
+        img
+        (remove-buffers 
+            (- n 1)
+            (cdr (butlast
+                (mapcar
+                    (lambda (line) (cdr (butlast line)))
+                    img))))))
 
 (defun iota (start stop)
     (alexandria:iota (- stop start) :start start))
 
 (defun step-img (img)
-    (let* ((buffered (buffer-img 3 img)))
-        (loop for y in (iota 1 (- (length buffered) 1)) collect
-            (loop for x in (iota 1 (- (length (car buffered)) 1)) collect
-                (calc-next-val (list x y) buffered)))))
+    (loop for y in (iota 1 (- (length img) 1)) collect
+        (loop for x in (iota 1 (- (length (car img)) 1)) collect
+            (calc-next-val (list x y) img))))
 
 (defun steps-img (n img)
     (if (= 0 n)
         img
-        (steps-img (- n 1) (step-img img))))
+        (steps-img 
+            (- n 1)
+            (let ((s (rem n 2)))
+                (remove-buffers 
+                    1
+                    (step-img (add-buffers 200 s img)))))))
 
 ;; (print (load-img))
 (defun problem1 ()
@@ -90,14 +105,18 @@
             (lambda (line) (apply #'+ line)) 
             (steps-img 2 (load-img)))))
 
-;; (print (problem1))
+;; (print (load-img))
+
+(print (problem1))
 
 (defparameter testimg (list (list 1 1 1)))
 ;; (loop for i in (alexandria:iota 5) do
 ;;     (setq testimg (step-img testimg))
 ;;     (print testimg))
 
-(print (window-step (list 0 0 0 0 0 0 0 0 0)))
-(print *algo*)
+;; (print (add-buffers 2 "s" testimg))
+;; (print (remove-buffers 1 (add-buffers 2 "s" testimg)))
+;; (print *algo*)
 
-; A wrong: 4168 (too low)
+; A wrong: 4168 (too low), 4520 (too low); 4928 (too high); correct: 4917
+
