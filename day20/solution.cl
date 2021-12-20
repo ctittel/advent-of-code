@@ -55,9 +55,7 @@
                     (lambda (z) (get-val z img))
                     (get-window-coords xy))))
 
-; append 0s to all sides
 (defun add-buffers (n symbol img)
-    ;; (print (list "buffer-img" img))
     (if (= n 0)
         img
         (add-buffers
@@ -96,27 +94,24 @@
             (let ((s (rem n 2)))
                 (remove-buffers 
                     1
-                    (step-img (add-buffers 200 s img)))))))
+                    (step-img (add-buffers 3 s img)))))))
 
-;; (print (load-img))
 (defun problem1 ()
     (apply #'+ 
         (mapcar
             (lambda (line) (apply #'+ line)) 
             (steps-img 2 (load-img)))))
 
-;; (print (load-img))
+(defun problem2 ()
+    (apply #'+ 
+        (mapcar
+            (lambda (line) (apply #'+ line)) 
+            (steps-img 50 (load-img)))))
 
 (print (problem1))
+(print (problem2))
 
 (defparameter testimg (list (list 1 1 1)))
-;; (loop for i in (alexandria:iota 5) do
-;;     (setq testimg (step-img testimg))
-;;     (print testimg))
-
-;; (print (add-buffers 2 "s" testimg))
-;; (print (remove-buffers 1 (add-buffers 2 "s" testimg)))
-;; (print *algo*)
 
 ; A wrong: 4168 (too low), 4520 (too low); 4928 (too high); correct: 4917
 
