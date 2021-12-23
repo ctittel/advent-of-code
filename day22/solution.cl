@@ -4,7 +4,7 @@
 
 (defun load-data() 
         (let* (
-                (data (alexandria:read-file-into-string "test.txt"))
+                (data (alexandria:read-file-into-string "input.txt"))
                 (lines (mapcar #'parse-line (split-sequence:split-sequence #\Newline data :remove-empty-subseqs t))))
             lines))
 
@@ -56,7 +56,6 @@
                                 (second xa))))
                     a
                     b)))
-        ;; (print points)
         (get-all-combs (mapcar
                             (lambda (x) (mapcar #'list (butlast x) (cdr x)))
                             points))))
@@ -64,6 +63,7 @@
 (defun remove-intersections (a b)
     (remove-if
         (lambda (box) (intersects box b))
+        ;; (lambda (box) (equal box b))
         (get-subboxes a b)))
 
 ; whether or not a and b intersect
@@ -72,10 +72,9 @@
         #'identity
         (mapcar
             (lambda (rangea rangeb)
-                (or
-                    (and (<= (first rangeb) (first rangea)) (>= (second rangeb) (second rangea)))
-                    (and (> (first rangeb) (first rangea)) (< (first rangeb) (second rangea)))
-                    (and (> (second rangeb) (first rangea)) (< (second rangeb) (second rangea)))))
+                (not (or
+                        (>= (first rangea) (second rangeb))
+                        (<= (second rangea) (first rangeb)))))
             a b)))
 
 (defun process-inputs (t-boxes inputs)
@@ -87,11 +86,13 @@
                     #'append
                     (mapcar
                         (lambda (other)
-                            (if (intersects other box)
-                                (remove-intersections other box)
-                                (list other)))
+                            ;; (if (intersects other box)
+                                (remove-intersections other box))
+                                ;; (list other)))
                         t-boxes))
-                (if val (list box) nil))))
+                (if val 
+                    (list box) 
+                    nil))))
     t-boxes)
 
 (defun calc-area (box)
@@ -107,9 +108,22 @@
 
 ;; (print (remove-intersections (list (list 0 10) (list 0 10)) (list (list 1 2) (list -1 1))))
 
-(let* (  (data (load-data))
+;; (setq testa (list (list 0 10) (list 0 10)))
+;; (setq testb (list (list 0 10) (list -1 110)))
+;; (print (remove-intersections testa testb))
+;; (print (sum-boxes (remove-intersections testa testb)))
+
+(defun prepare-data (data)
+    (loop for (v box) in data collect
+        (list v
+            (mapcar
+                (lambda (boxx) (list (first boxx) (+ 1 (second boxx))))
+                box))))
+
+(let* (  (data (prepare-data (load-data)))
         (initial-t-box (second (car data)))
         (inputs (cdr data)))
+    (print (subseq inputs 0 19))
     (print (sum-boxes
                 (process-inputs (list (second (car data))) (subseq inputs 0 19))))
 
