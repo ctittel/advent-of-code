@@ -79,16 +79,16 @@
 
 (defun process-inputs (t-boxes inputs)
     (loop for (val box) in inputs do
-        ;; (print (list "val" val "box" box "t-boxes" t-boxes))
+        ;; (print (list "val" val "box" box)) ; "t-boxes" t-boxes))
         (setq t-boxes
             (append
                 (apply 
                     #'append
                     (mapcar
                         (lambda (other)
-                            ;; (if (intersects other box)
-                                (remove-intersections other box))
-                                ;; (list other)))
+                            (if (intersects other box)
+                                (remove-intersections other box)
+                                (list other)))
                         t-boxes))
                 (if val 
                     (list box) 
@@ -120,12 +120,14 @@
                 (lambda (boxx) (list (first boxx) (+ 1 (second boxx))))
                 box))))
 
-(let* (  (data (prepare-data (load-data)))
+(let* ( (data (prepare-data (load-data)))
         (initial-t-box (second (car data)))
         (inputs (cdr data)))
-    (print (subseq inputs 0 19))
+    ;; (print (subseq inputs 0 19))
     (print (sum-boxes
                 (process-inputs (list (second (car data))) (subseq inputs 0 19))))
+    (print (sum-boxes
+                (process-inputs (list (second (car data))) inputs)))
 
 )
 
