@@ -4,7 +4,7 @@
 
 (defun load-data() 
         (let* (
-                (data (alexandria:read-file-into-string "input.txt"))
+                (data (alexandria:read-file-into-string "test.txt"))
                 (lines (mapcar #'parse-line (split-sequence:split-sequence #\Newline data :remove-empty-subseqs t))))
             lines))
 
@@ -33,32 +33,86 @@
 
 ;; --- Done Loading
 
-(defun calc-intersection-area (a b)
-    (let* ((deltas  (mapcar
-                        (lambda (xa xb)
-                            (-  (min (second xa) (second xb))
-                                (max (first xa) (first xb))))
-                        a
-                        b)))
-        (if (some (lambda (delta) (< delta 0)) deltas)
-            0
-            (apply #'* deltas))))
+; l is a list of lists of elements that may be at each spot
+(defun get-all-combs (l)
+    ;; (print l)
+    (if (= (length l) 1)
+        (mapcar #'list (car l))
+        (apply #'append
+            (loop for x in (car l) collect
+                (loop for rest in (get-all-combs (cdr l)) collect
+                    (append (list x) rest))))))
 
-(defun intersect (box other)
-    (let* ((axes  (mapcar
-                        (lambda (xbox xother)
-                            (list   (first xbox)
-                                    (max (first xa) (first xb)))
-                                    (min (second xa) (second xb))
-                        box
-                        other)))
-        (if (some (lambda (delta) (< delta 0)) deltas)
-            0
-            (apply #'* deltas))))
+; Returns a list of boxes, created by removing box b from box a
+(defun get-subboxes (a b)
+    (let* ((points ; list of  ((points of interest x) (points of interest y) (points of interest z))
+                (mapcar
+                    (lambda (xa xb)
+                        (remove-if #'null
+                            (list
+                                (first xa)
+                                (if (and (> (first xb) (first xa)) (< (first xb) (second xa))) (first xb) nil)
+                                (if (and (> (second xb) (first xa)) (< (second xb) (second xa))) (second xb) nil)
+                                (second xa))))
+                    a
+                    b)))
+        ;; (print points)
+        (get-all-combs (mapcar
+                            (lambda (x) (mapcar #'list (butlast x) (cdr x)))
+                            points))))
 
-; (print (load-data))
-; (print (calc-intersection-area
-;             (list (list -10 1) (list -10 1) (list -10 1))
-;             (list (list -10 1) (list -10 1) (list -10 0))))
+(defun remove-intersections (a b)
+    (remove-if
+        (lambda (box) (intersects box b))
+        (get-subboxes a b)))
 
-(defun intersect )
+; whether or not a and b intersect
+(defun intersects (a b)
+    (every
+        #'identity
+        (mapcar
+            (lambda (rangea rangeb)
+                (or
+                    (and (<= (first rangeb) (first rangea)) (>= (second rangeb) (second rangea)))
+                    (and (> (first rangeb) (first rangea)) (< (first rangeb) (second rangea)))
+                    (and (> (second rangeb) (first rangea)) (< (second rangeb) (second rangea)))))
+            a b)))
+
+(defun process-inputs (t-boxes inputs)
+    (loop for (val box) in inputs do
+        ;; (print (list "val" val "box" box "t-boxes" t-boxes))
+        (setq t-boxes
+            (append
+                (apply 
+                    #'append
+                    (mapcar
+                        (lambda (other)
+                            (if (intersects other box)
+                                (remove-intersections other box)
+                                (list other)))
+                        t-boxes))
+                (if val (list box) nil))))
+    t-boxes)
+
+(defun calc-area (box)
+    (apply #'*
+        (mapcar
+            (lambda (coords) (- (second coords) (first coords)))
+            box)))
+
+(defun sum-boxes (boxes)
+    (apply 
+        #'+
+        (mapcar #'calc-area boxes)))
+
+;; (print (remove-intersections (list (list 0 10) (list 0 10)) (list (list 1 2) (list -1 1))))
+
+(let* (  (data (load-data))
+        (initial-t-box (second (car data)))
+        (inputs (cdr data)))
+    (print (sum-boxes
+                (process-inputs (list (second (car data))) (subseq inputs 0 19))))
+
+)
+
+;; A too low: 585247
