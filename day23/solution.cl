@@ -25,7 +25,7 @@
                 (if (funcall is-goal current)
                     (return (construct-path prev current))
                     nil)
-                ;; (print (funcall get-actions current))
+                ;; (print (list "state" current "actions" (funcall get-actions current)))
                 (loop for action in (funcall get-actions current) do
                     (let* ( (nstate (funcall next-state current action))
                             (tenative (+ (gethash current dist) (funcall get-cost current action))))
@@ -77,7 +77,7 @@
         (lambda (current) (gethash (car (last current)) *adjmap*)) ; get-actions
         (lambda (state action) (append state (list action))) ; next-state
         (lambda (state action) 1))))) ; get-cost
-;; initial-state is-goal get-actions next-state get-cost)
+;; initial-state is-goal get-actions next-state get-cost
 
 (defun get-path (start stop)
     (if (null (gethash (list start stop) path-cache))
@@ -98,14 +98,18 @@
 (loop for (agent goals) in *goals* do
     (setf (gethash agent *goals-dict*) goals))
 
-(defparameter *costs*
-    (list
-        (cons 'a 1)
-        (cons 'b 10)
-        (cons 'c 100)
-        (cons 'd 1000)))
+(defun agent-cost (agent)
+    (cond 
+        ((equal agent 'a1) 1)
+        ((equal agent 'a2) 1)
+        ((equal agent 'b1) 10)
+        ((equal agent 'b2) 10)
+        ((equal agent 'c1) 100)
+        ((equal agent 'c2) 100)
+        ((equal agent 'd1) 1000)
+        ((equal agent 'd2) 1000)))
 
-(print (get-path 'A1 9))
+;; (print (get-path 'A1 9))
 
 (defun is-free (state node)
     (let ((occupied (mapcar #'second state)))
@@ -115,6 +119,8 @@
     (every
         (lambda (node) (is-free state node))
         (cdr path)))
+
+;; initial-state is-goal get-actions next-state get-cost
 
 (defparameter *initial-state*
     (list
@@ -127,13 +133,18 @@
         (list 'd1 'A1)
         (list 'd2 'D2)))
 
-(defun get-node (state agent)
+(defun get-agent-node (state agent)
     (nth
         (position agent (mapcar #'first state))
         (mapcar #'second state)))
 
+(defun get-agent-at (state node)
+    (nth
+        (position node (mapcar #'second state))
+        (mapcar #'first state)))
+
 (defun at-goal-node (state agent)
-    (position (get-node state agent) (gethash agent *goals-dict*)))
+    (position (get-agent-node state agent) (gethash agent *goals-dict*)))
 
 (defparameter *agents* (list 'a1 'a2 'b1 'b2 'c1 'c2 'd1 'd2))
 
@@ -142,25 +153,34 @@
         (lambda (agent) (at-goal-node state agent))
         *agents*))
 
-(defparameter *state-costs* (make-hash-table :test 'equal))
-;; (defun next-states (state)
-;;     (loop for agent in  collect
-        
-;; )
+(defun get-state-actions (state)
+    (remove-if-not
+        (lambda (p) (path-free state p))
+        (apply #'append
+            (loop for agent in *agents* collect
+                (let* ((node (get-agent-node state agent)))
+                    (cond   
+                            ;; ((at-goal-node state agent) nil)
+                            ((numberp node)
+                                (mapcar
+                                    (lambda (goal) (get-path node goal))
+                                    (gethash agent *goals-dict*)))
+                            (t (mapcar
+                                    (lambda (x) (get-path node x))
+                                    (list 1 2 4 6 8 10 11)))))))))
 
-;; (defun get-state-cost (state1 state2)
+(defun problem-next-state (state action)
+    (let* ((agent (get-agent-at state (first action))))
+        (append
+            (remove-if
+                (lambda (agent-node) (equal (first agent-node) agent))
+                state)
+            (list (list agent (car (last action)))))))
 
-;; )
+(defun problem-get-cost (state action)
+    (let* ((agent (get-agent-at state (first action))))
+        (* (- (length action) 1) (agent-cost agent))))
 
-;; (print (is-free *initial-state* 'A1))
-;; (print (is-free *initial-state* 'D2))
-;; (print (is-free *initial-state* 1))
-;; (print (is-free *initial-state* 7))
+;; initial-state is-goal get-actions next-state get-cost
 
-;; (print (path-free
-;;             *initial-state*
-;;             (get-path 'A1 9)))
-
-;; (print (path-free
-;;             *initial-state*
-;;             (get-path 1 9)))
+(print (dijkstra *initial-state* #'is-goal-state #'get-state-actions #'problem-next-state #'problem-get-cost))
