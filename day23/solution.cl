@@ -83,10 +83,17 @@
 
 (defparameter *goals*
     (list
-        (cons 'a (cons 'A1 'A2))
-        (cons 'b (cons 'B1 'B2))
-        (cons 'c (cons 'C1 'C2))
-        (cons 'd (cons 'D1 'D2))))
+        (list 'a1 (list 'A1 'A2))
+        (list 'a2 (list 'A1 'A2))
+        (list 'b1 (list 'B1 'B2))
+        (list 'b2 (list 'B1 'B2))
+        (list 'c1 (list 'C1 'C2))
+        (list 'c2 (list 'C1 'C2))
+        (list 'd1 (list 'D1 'D2))
+        (list 'd2 (list 'D1 'D2))))
+(defparameter *goals-dict* (make-hash-table :test 'equal))
+(loop for (agent goals) in *goals* do
+    (setf (gethash agent *goals-dict*) goals))
 
 (defparameter *costs*
     (list
@@ -95,4 +102,62 @@
         (cons 'c 100)
         (cons 'd 1000)))
 
-(print (get-path 'A1 9))
+;; (print (get-path 'A1 9))
+
+(defun is-free (state node)
+    (let ((occupied (mapcar #'second state)))
+        (not (position node occupied))))
+
+(defun path-free (state path)
+    (every
+        (lambda (node) (is-free state node))
+        (cdr path)))
+
+(defparameter *initial-state*
+    (list
+        (list 'a1 'B1)
+        (list 'a2 'C1)
+        (list 'b1 'A2)
+        (list 'b2 'B2)
+        (list 'c1 'C2)
+        (list 'c2 'D1)
+        (list 'd1 'A1)
+        (list 'd2 'D2)))
+
+(defun get-node (state agent)
+    (nth
+        (position agent (mapcar #'first state))
+        (mapcar #'second state)))
+
+(defun at-goal-node (state agent)
+    (position (get-node state agent) (gethash agent *goals-dict*)))
+
+(defparameter *agents* (list 'a1 'a2 'b1 'b2 'c1 'c2 'd1 'd2))
+
+(defun is-goal-state (state)
+    (every
+        (lambda (agent) (at-goal-node state agent))
+        *agents*))
+
+(defparameter *state-costs* (make-hash-table :test 'equal))
+;; (defun next-states (state)
+;;     (loop for agent in  collect
+        
+;; )
+
+;; (defun get-state-cost (state1 state2)
+
+;; )
+
+;; (print (is-free *initial-state* 'A1))
+;; (print (is-free *initial-state* 'D2))
+;; (print (is-free *initial-state* 1))
+;; (print (is-free *initial-state* 7))
+
+;; (print (path-free
+;;             *initial-state*
+;;             (get-path 'A1 9)))
+
+;; (print (path-free
+;;             *initial-state*
+;;             (get-path 1 9)))
