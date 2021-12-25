@@ -12,32 +12,32 @@
 ; get-actions: state -> list of actions
 ; next-state: state action -> state
 ; get-cost: state -> float
-(defun dijkstra (initial-state is-goal get-actions next-state get-cost)
-    (let* 
-        (   (dist (make-hash-table :test 'equal))
+; heuristic-fn: state -> lower bound on cost
+(defun astar (initial-state is-goal get-actions next-state get-cost heuristic-fn)
+    (let* ( (gscore (make-hash-table :test 'equal))
             (prev (make-hash-table :test 'equal))
             (Q (make-instance 'cl-heap:priority-queue)))
-        (setf (gethash initial-state dist) 0)
+        (setf (gethash initial-state gscore) 0)
         (cl-heap:enqueue Q initial-state 0)
         (loop while (> (cl-heap:queue-size Q) 0) do
             (let ((current (cl-heap:dequeue Q)))
                 ;; (print current)
+                (print (list "state" current "actions" (funcall get-actions current)))
                 (if (funcall is-goal current)
                     (return (construct-path prev current))
-                    nil)
-                ;; (print (list "state" current "actions" (funcall get-actions current)))
-                (loop for action in (funcall get-actions current) do
-                    (let* ( (nstate (funcall next-state current action))
-                            (tenative (+ (gethash current dist) (funcall get-cost current action))))
-                        ;; (print tenative)
-                        (if (or (null (gethash nstate dist)) 
-                                (< tenative (gethash nstate dist)))
-                            (let()
-                                (setf (gethash nstate dist) tenative)
-                                (setf (gethash nstate prev) current)
-                                ; (setf (gethash neighbor fscore) (+ tenative (heuristic neighbor)))
-                                (cl-heap:enqueue Q nstate tenative))
-                            nil)))))))
+                    (loop for action in (funcall get-actions current) do
+                        (let* ( (nstate (funcall next-state current action))
+                                (tenative (+ (gethash current gscore) (funcall get-cost current action))))
+                            ;; (print tenative)
+                            (if (or (null (gethash nstate gscore))
+                                    (< tenative (gethash nstate gscore)))
+                                (let()
+                                    (setf (gethash nstate gscore) tenative)
+                                    (setf (gethash nstate prev) current)
+                                    ; (setf (gethash neighbor fscore) (+ tenative (heuristic neighbor)))
+                                    (cl-heap:enqueue Q nstate 
+                                        (+ tenative
+                                            (funcall heuristic-fn nstate))))))))))))
 ;; --------------
 
 
@@ -71,18 +71,20 @@
 
 (defparameter path-cache (make-hash-table :test 'equal))
 (defun get-path-aux (start goal)
-    (car (last (dijkstra 
+    (car (last (astar 
         (list start)
         (lambda (state) (equal (car (last state)) goal)) ; is-goal fn
         (lambda (current) (gethash (car (last current)) *adjmap*)) ; get-actions
         (lambda (state action) (append state (list action))) ; next-state
-        (lambda (state action) 1))))) ; get-cost
-;; initial-state is-goal get-actions next-state get-cost
+        (lambda (state action) 1) ; get-cost
+        (lambda (x) 0))))) ; heuristic
 
 (defun get-path (start stop)
     (if (null (gethash (list start stop) path-cache))
-        (setf (gethash (list start stop) path-cache) (get-path-aux start stop)))
-    (gethash (list start stop) path-cache))
+        (if (gethash (list stop start) path-cache)
+            (setf (gethash (list start stop) path-cache) (reverse (gethash (list stop start) path-cache)))
+            (setf (gethash (list start stop) path-cache) (get-path-aux start stop)))
+    (gethash (list start stop) path-cache)))
 
 (defparameter *goals*
     (list
@@ -109,16 +111,11 @@
         ((equal agent 'd1) 1000)
         ((equal agent 'd2) 1000)))
 
-;; (print (get-path 'A1 9))
-
-(defun is-free (state node)
-    (let ((occupied (mapcar #'second state)))
-        (not (position node occupied))))
-
 (defun path-free (state path)
-    (every
-        (lambda (node) (is-free state node))
-        (cdr path)))
+    (let ((occupied (mapcar #'second state)))
+        (every
+            (lambda (node) (not (position node occupied)))
+            (cdr path))))
 
 ;; initial-state is-goal get-actions next-state get-cost
 
@@ -159,15 +156,13 @@
         (apply #'append
             (loop for agent in *agents* collect
                 (let* ((node (get-agent-node state agent)))
-                    (cond   
-                            ;; ((at-goal-node state agent) nil)
-                            ((numberp node)
-                                (mapcar
-                                    (lambda (goal) (get-path node goal))
-                                    (gethash agent *goals-dict*)))
-                            (t (mapcar
-                                    (lambda (x) (get-path node x))
-                                    (list 1 2 4 6 8 10 11)))))))))
+                    (if (numberp node)
+                            (mapcar
+                                (lambda (goal) (get-path node goal))
+                                (gethash agent *goals-dict*))
+                            (mapcar
+                                (lambda (x) (get-path node x))
+                                (list 1 2 4 6 8 10 11))))))))
 
 (defun problem-next-state (state action)
     (let* ((agent (get-agent-at state (first action))))
@@ -181,6 +176,23 @@
     (let* ((agent (get-agent-at state (first action))))
         (* (- (length action) 1) (agent-cost agent))))
 
-;; initial-state is-goal get-actions next-state get-cost
+(defun problem-heuristic (state)
+    (apply #'+  
+        (loop for agent in *agents* collect
+            (if (at-goal-node state agent)
+                0
+                (* (agent-cost agent) 
+                    (- (length (get-path 
+                                    (get-agent-node state agent) 
+                                    (second (gethash agent *goals-dict*)))) 
+                        1))))))
 
-(print (dijkstra *initial-state* #'is-goal-state #'get-state-actions #'problem-next-state #'problem-get-cost))
+;; initial-state is-goal get-actions next-state get-cost heuristic-fn
+
+(print (astar 
+            *initial-state* 
+            #'is-goal-state 
+            #'get-state-actions 
+            #'problem-next-state 
+            #'problem-get-cost
+            #'problem-heuristic))
