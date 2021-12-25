@@ -2,6 +2,12 @@
 (require "cl-heap")
 (require "alexandria")
 
+;; Solution for advent of code day 23 problem B
+;; Works but is very slow
+;; Improvement: If a column is filled up with some correct agents (from the bottom up) don't move these agents somewhere else again 
+;;              (currently actions to move them elsewhere are created because it is easier)
+;;              that should speed up things quite a bit
+
 (defun construct-path (prev-d current)
     (if current
         (append (construct-path prev-d (gethash current prev-d)) (list current))
@@ -56,13 +62,21 @@
             (list 9 10)
             (list 10 11)
             (list 'A1 'A2)
-            (list 'A2 3)
+            (list 'A2 'A3)
+            (list 'A3 'A4)
+            (list 'A4 3)
             (list 'B1 'B2)
-            (list 'B2 5)
+            (list 'B2 'B3)
+            (list 'B3 'B4)
+            (list 'B4 5)
             (list 'C1 'C2)
-            (list 'C2 7)
+            (list 'C2 'C3)
+            (list 'C3 'C4)
+            (list 'C4 7)
             (list 'D1 'D2)
-            (list 'D2 9))))
+            (list 'D2 'D3)
+            (list 'D3 'D4)
+            (list 'D4 9))))
 
 (defparameter path-cache (make-hash-table :test 'equal))
 (defun get-path-aux (start goal)
@@ -87,15 +101,28 @@
 
 (defparameter *goals* 
     (list
-        (list 'A1 'A2)
-        (list 'A1 'A2)
-        (list 'B1 'B2)
-        (list 'B1 'B2)
-        (list 'C1 'C2)
-        (list 'C1 'C2)
-        (list 'D1 'D2)
-        (list 'D1 'D2)))
-(defparameter *costs* (list 1 1 10 10 100 100 1000 1000))
+        (list 'A1 'A2 'A3 'A4)
+        (list 'A1 'A2 'A3 'A4)
+        (list 'A1 'A2 'A3 'A4)
+        (list 'A1 'A2 'A3 'A4)
+        (list 'B1 'B2 'B3 'B4)
+        (list 'B1 'B2 'B3 'B4)
+        (list 'B1 'B2 'B3 'B4)
+        (list 'B1 'B2 'B3 'B4)
+        (list 'C1 'C2 'C3 'C4)
+        (list 'C1 'C2 'C3 'C4)
+        (list 'C1 'C2 'C3 'C4)
+        (list 'C1 'C2 'C3 'C4)
+        (list 'D1 'D2 'D3 'D4)
+        (list 'D1 'D2 'D3 'D4)
+        (list 'D1 'D2 'D3 'D4)
+        (list 'D1 'D2 'D3 'D4)))
+
+(defparameter *costs* 
+    (list   1 1 1 1 
+            10 10 10 10
+            100 100 100 100
+            1000 1000 1000 1000))
 
 (defun path-cost (agent path)
     (*  (length (cdr path))
@@ -107,7 +134,10 @@
         (cdr path)))
 
 (defparameter *initial-state*
-    (list 'B1 'C1 'A2 'B2 'C2 'D1 'A1 'D2))
+    (list   'B1 'C1 'C2 'D3 
+            'A4 'B2 'B4 'C3 
+            'B3 'C4 'D1 'D2 
+            'A1 'A2 'A3 'D4))
 
 (defun agent-at-goal (state agent)
     (position (nth agent state) (nth agent *goals*)))
@@ -122,9 +152,16 @@
                     (correct-agents-at-goals? (every
                                                 (lambda (ag) (or (null ag) (agent-at-goal state ag)))
                                                 agents-on-goals)))
-                (cond   ((equal agents-on-goals (list nil nil)) (list (get-path (nth agent state) (first (nth agent *goals*)))))
-                        (correct-agents-at-goals? (list (get-path (nth agent state) (second (nth agent *goals*)))))
-                        (t nil)))
+                (if correct-agents-at-goals?
+                    (list (get-path
+                            (nth agent state)
+                            (nth (position nil agents-on-goals) (nth agent *goals*))))
+                    nil))
+            ;; (if (agent-at-goal state agent)
+            ;;     (let* ((agents-below (mapcar
+                                        
+            ;;                             (subseq (nth agent *goals*) 0 (position (nth agent state) (nth agent *goals*)))
+            ;;     ))
             (mapcar
                 (lambda (node) (get-path (nth agent state) node))
                 (list 1 2 4 6 8 10 11)))))
