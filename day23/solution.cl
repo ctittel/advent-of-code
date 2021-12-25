@@ -15,7 +15,7 @@
 ; next-state: state action -> state
 ; get-cost: state -> float
 ; heuristic-fn: state -> lower bound on cost
-(defun astar (initial-state is-goal get-actions next-state get-cost heuristic-fn print?)
+(defun astar (initial-state is-goal get-actions next-state get-cost heuristic-fn print? with-total-cost?)
     (let* ( (gscore (make-hash-table :test 'equal))
             (prev (make-hash-table :test 'equal))
             (Q (make-instance 'cl-heap:priority-queue)))
@@ -26,11 +26,12 @@
                 (if print?
                     (print (list "state" current "actions" (funcall get-actions current))))
                 (if (funcall is-goal current)
-                    (return (construct-path prev current))
+                    (if with-total-cost?
+                        (return (list (construct-path prev current) (gethash current gscore)))
+                        (return (construct-path prev current)))
                     (loop for action in (funcall get-actions current) do
                         (let* ( (nstate (funcall next-state current action))
                                 (tenative (+ (gethash current gscore) (funcall get-cost current action))))
-                            ;; (print tenative)
                             (if (or (null (gethash nstate gscore))
                                     (< tenative (gethash nstate gscore)))
                                 (let()
@@ -80,8 +81,9 @@
         (lambda (current) (gethash (car (last current)) *graph*)) ; get-actions
         (lambda (state action) (append state (list action))) ; next-state
         (lambda (state action) 1) ; get-cost
-        (lambda (x) 0)
-        nil)))) ; heuristic
+        (lambda (x) 0) ; heuristic
+        nil ; print?
+        nil)))) ; with-actions?
 
 (defun get-path (start stop)
     (if (null (gethash (list start stop) path-cache))
@@ -158,8 +160,6 @@
                 0
                 (path-cost i (get-path (nth i state) (second (nth i *goals*))))))))
 
-;; initial-state is-goal get-actions next-state get-cost heuristic-fn
-
 (print (astar 
             *initial-state* 
             (lambda (state) (every 
@@ -170,6 +170,7 @@
             #'problem-next-state 
             (lambda (state action) (third action))
             #'problem-heuristic
+            t
             t))
 
 ; state space: list (agent-pos)
