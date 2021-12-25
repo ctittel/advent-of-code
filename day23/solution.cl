@@ -1,5 +1,6 @@
 (load "~/quicklisp/setup.lisp")
 (require "cl-heap")
+(require "alexandria")
 
 ;; --- General
 (defun construct-path (prev-d current)
@@ -39,7 +40,8 @@
                                     (cl-heap:enqueue Q nstate 
                                         (+ tenative
                                             (funcall heuristic-fn nstate))))))))))))
-;; --------------
+
+;; -------------- Graph and Path finding stuff
 
 (defun map-from-adjacencylist (adj)
     (let ((m (make-hash-table :test 'equal)))
@@ -88,105 +90,87 @@
             (setf (gethash (list start stop) path-cache) (get-path-aux start stop)))
     (gethash (list start stop) path-cache)))
 
-(defun agent-goals (agent)
-    (cond 
-        ((equal (first agent) 'a) (list 'A1 'A2))
-        ((equal (first agent) 'b) (list 'B1 'B2))
-        ((equal (first agent) 'c) (list 'C1 'C2))
-        ((equal (first agent) 'd) (list 'D1 'D2))))
+;; --- Problem stuff
 
-(defun agent-cost (agent)
-    (cond 
-        ((equal (first agent) 'a) 1)
-        ((equal (first agent) 'b) 10)
-        ((equal (first agent) 'c) 100)
-        ((equal (first agent) 'd) 1000)))
+(defparameter *goals* 
+    (list
+        (list 'A1 'A2)
+        (list 'A1 'A2)
+        (list 'B1 'B2)
+        (list 'B1 'B2)
+        (list 'C1 'C2)
+        (list 'C1 'C2)
+        (list 'D1 'D2)
+        (list 'D1 'D2)))
+(defparameter *costs* (list 1 1 10 10 100 100 1000 1000))
+
+(defun path-cost (agent path)
+    (*  (length (cdr path))
+        (nth agent *costs*)))
 
 (defun path-free (state path)
-    (let ((occupied (mapcar #'second state)))
-        (every
-            (lambda (node) (not (position node occupied)))
-            (cdr path))))
-
-;; initial-state is-goal get-actions next-state get-cost
+    (every
+        (lambda (node) (not (position node state)))
+        (cdr path)))
 
 (defparameter *initial-state*
-    (list
-        (list (list 'a 1) 'B1)
-        (list (list 'a 2) 'C1)
-        (list (list 'b 1) 'A2)
-        (list (list 'b 2) 'B2)
-        (list (list 'c 1) 'C2)
-        (list (list 'c 2) 'D1)
-        (list (list 'd 1) 'A1)
-        (list (list 'd 2) 'D2)))
+    (list 'B1 'C1 'A2 'B2 'C2 'D1 'A1 'D2))
 
-(defun get-agent-pos (state agent)
-    (nth
-        (position agent (mapcar #'first state))
-        (mapcar #'second state)))
+(defun agent-at-goal (state agent)
+    (position (nth agent state) (nth agent *goals*)))
 
-(defun get-agent-at (state node)
-    (let ((i (position node (mapcar #'second state))))
-        (if i
-            (nth i (mapcar #'first state))
-            nil)))
+(defun get-agent-paths (state agent)
+    (remove-if-not
+        (lambda (path) (path-free state path))
+        (if (numberp (nth agent state))
+            (let* ( (agents-on-goals (mapcar
+                                        (lambda (gnode) (position gnode state))
+                                        (nth agent *goals*)))
+                    (correct-agents-at-goals? (every
+                                                (lambda (ag) (or (null ag) (agent-at-goal state ag)))
+                                                agents-on-goals)))
+                (cond   ((equal agents-on-goals (list nil nil)) (list (get-path (nth agent state) (first (nth agent *goals*)))))
+                        (correct-agents-at-goals? (list (get-path (nth agent state) (second (nth agent *goals*)))))
+                        (t nil)))
+            (mapcar
+                (lambda (node) (get-path (nth agent state) node))
+                (list 1 2 4 6 8 10 11)))))
 
 (defun get-state-actions (state)
-    (remove-if-not
-        (lambda (p) (path-free state p))
-        (apply #'append
-            (loop for (agent pos) in state collect
-                (if (numberp pos)
-                    (let* ((agents-on-gnodes (mapcar 
-                                                (lambda (n) (get-agent-at state n)) 
-                                                (agent-goals agent))))
-                        (if (every 
-                                (lambda (ag) (or (null agent) (equal (first ag) (first agent))))
-                                agents-on-gnodes)
-                            (mapcar
-                                (lambda (goal) (list agent (get-path pos goal)))
-                                (agent-goals agent))
-                            nil))
-                    (mapcar
-                        (lambda (x) (list agent (get-path pos x)))
-                        (list 1 2 4 6 8 10 11)))))))
+    (apply 
+        #'append
+        (mapcar
+            (lambda (agent) (mapcar 
+                                (lambda (path) (list agent (car (last path)) (path-cost agent path)))
+                                (get-agent-paths state agent)))
+            (alexandria:iota (length state)))))
 
 (defun problem-next-state (state action)
-    (let (  (agent (first action))
-            (path (second action))
-            (i (position (first action) (mapcar #'first state))))
-        ;; (print (list "agent" agent "path" path "i" i))
-        (append 
-            (subseq state 0 i)
-            (list (list agent (first (last path))))
-            (subseq state (+ i 1)))))
-
-(defun problem-get-cost (state action)
-    (let* ( (agent (first action))
-            (path (second action)))
-        (* (- (length path) 1) (agent-cost agent))))
+    (append 
+        (subseq state 0 (first action))
+        (list (second action))
+        (subseq state (+ (first action) 1))))
 
 (defun problem-heuristic (state)
     (apply #'+  
-        (loop for (agent pos) in state collect
-            (if (position agent (agent-goals agent))
+        (loop for i in (alexandria:iota (length state)) collect
+            (if (position (nth i state) (nth i *goals*))
                 0
-                (* (agent-cost agent)
-                    (- (length (get-path 
-                                    pos
-                                    (second (agent-goals agent))))
-                        1))))))
+                (path-cost i (get-path (nth i state) (second (nth i *goals*))))))))
 
 ;; initial-state is-goal get-actions next-state get-cost heuristic-fn
 
 (print (astar 
             *initial-state* 
             (lambda (state) (every 
-                                (lambda (agent-state) (position (second agent-state) (agent-goals (first agent-state)))) 
-                                state)) ; is-goal fn
+                                (lambda (i) 
+                                    (position (nth i state) (nth i *goals*))) 
+                                (alexandria:iota (length state)))) ; is-goal fn
             #'get-state-actions 
             #'problem-next-state 
-            #'problem-get-cost
+            (lambda (state action) (third action))
             #'problem-heuristic
             t))
+
+; state space: list (agent-pos)
+; action space: list (agent goto-node cost)
