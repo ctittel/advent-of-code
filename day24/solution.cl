@@ -94,11 +94,15 @@
             (list 'eql a b) 
             (or (> (lower-bound a setW) (upper-bound b setW)) 
                 (> (lower-bound b setW) (upper-bound a setW)))) 0)
+        ((trivia:guard (list 'w i) (< i (length setW)))
+            (nth i setW))
         ((list* _) nil)))
 
 (defun upper-matcher (x setW)
     (if (equal (first x) 'w)
-        9
+        (if (< (second x) (length setW))
+            (nth (second x) setW)
+            9)
         (let* ( (la (lower-bound (second x) setW))
                 (ua (upper-bound (second x) setW))
                 (lb (lower-bound (third x) setW))
@@ -116,7 +120,9 @@
 
 (defun lower-matcher (x setW)
     (if (equal (first x) 'w)
-        1
+        (if (< (second x) (length setW))
+            (nth (second x) setW)
+            1)
         (let* ( (la (lower-bound (second x) setW))
                 (ua (upper-bound (second x) setW))
                 (lb (lower-bound (third x) setW))
@@ -180,6 +186,21 @@
 (print (lower-bound *z* nil))
 (print (upper-bound *z* nil))
 ;; (print (nth 0 *state*))
+
+;; (defun simplify-all (x setW)
+;;     (if (listp x)
+;;         (simplify
+;;             (mapcar (lambda (xx) (simplify-all xx setW)) x)
+;;             setW)
+;;         x))
+
+(defparameter w (list 10 10 10 10))
+(defparameter test (list 'mul (list 'add (list 'w 10) (list 'w 1)) (list 'w 20)))
+
+;; (print (simplify test w))
+;; (print (upper-bound test w))
+(print (upper-bound *z* w))
+(print (lower-bound *z* w))
 
 ;; (loop for i in (alexandria:iota (nth 0 *state*)) do
 
