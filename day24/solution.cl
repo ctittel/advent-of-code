@@ -62,7 +62,10 @@
 
 ; ADD MUL DIV MOD EQL
 
-(defun matcher (x) 
+(defun is-w (l)
+    (equal (first l) 'w))
+
+(defun simplify-matcher (x) 
     (trivia:match x
         ((or (list 'mul 0 _) (list 'mul _ 0)) 0)
         ((list 'div a 1) a)
@@ -84,22 +87,15 @@
             (list 'eql a b)
             (and (numberp a) (numberp b))) (if (= a b) 1 0))
         ((trivia:guard 
-            (or (list 'eql a (list 'w i)) (list 'eql (list 'w i) a))
-            (and (numberp a) (>= a 10))) 0)
+            (or (list 'eql a w) (list 'eql w a))
+            (and (numberp a) (>= a 10) (is-w w))) 0)
+        ((or   (list 'mul a (list 'add b c)) 
+               (list 'mul (list 'add b c) a))
+            (list 'add (list 'mul a b) (list 'mul a c)))
         ((trivia:guard 
-            (or (list 'mul a (list 'add b rest)) 
-                (list 'mul a (list 'add rest b)) 
-                (list 'mul (list 'add rest b) a) 
-                (list 'mul (list 'add b rest) a))
-            (and (numberp a) (numberp b)))
-            (list 'add (* a b) (list 'mul a rest)))
-        ((trivia:guard 
-            (or (list 'rem (list 'add (list 'w i) b) a)
-                (list 'rem (list 'add b (list 'w i)) a))
-            (and    (numberp a) 
-                    (numberp b) 
-                    (> a (+ b 9))))
-            (list 'add (list 'w i) b))
+            (list 'rem a b)
+            (> b (upper-estimate a)))
+            a)
         ((trivia:guard 
             (or (list 'add (list 'add rest a) b)
                 (list 'add (list 'add a rest) b)
@@ -108,13 +104,55 @@
             (and    (numberp a)
                     (numberp b)))
             (list 'add rest (+ a b)))
+        ((trivia:guard 
+            (or (list 'eql a b) (list 'eql b a))
+            (>  (lower-estimate a) (upper-estimate b)))
+            0)
         ((list* _) x)))
 
 (defun simplify (x)
     (if (listp x)
-        (matcher (mapcar #'simplify x))
+        (simplify-matcher (mapcar #'simplify x))
+        x))
+
+(defun lower-matcher (x)
+    (trivia:match x
+        ((trivia:guard
+            (or (list 'mul a rest)
+                (list 'mul rest a))
+            (and (numberp a) (< a 0)))
+            (* a (upper-estimate rest)))
+        ((trivia:guard
+            (or (list 'mul a rest)
+                (list 'mul rest a))
+            (and (numberp a) (> a 0)))
+            (* a (lower-estimate rest)))
+        ((list 'w i) 1)))
+
+(defun upper-matcher (x)
+    (trivia:match x
+        ((trivia:guard
+            (or (list 'mul a rest)
+                (list 'mul rest a))
+            (and (numberp a) (< a 0)))
+            (* a (lower-estimate rest)))
+        ((trivia:guard
+            (or (list 'mul a rest)
+                (list 'mul rest a))
+            (and (numberp a) (> a 0)))
+            (* a (upper-estimate rest)))
+        ((list 'w i) 9)))
+
+(defun upper-estimate (x)
+    (if (listp x)
+        (upper-matcher (mapcar #'upper-estimate x))
+        x))
+
+(defun lower-estimate (x)
+    (if (listp x)
+        (lower-matcher (mapcar #'lower-estimate (simplify x)))
         x))
 
 (defparameter *state* (load-data))
 (defparameter *z* (get-subtree *state* "z"))
-(print (simplify *z*))
+(print (simplify (simplify (simplify *z*))))
