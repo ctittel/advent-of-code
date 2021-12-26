@@ -11,7 +11,7 @@
             (reduce
                 (lambda (total x) (parse-line total x))
                 lines
-                :initial-value (list (list 'w 0) 0 0 0))))
+                :initial-value (list 0 0 0 0))))
 
 ; state: i_w, x current subtree, y current subtree, z tree
 
@@ -35,12 +35,13 @@
                                             bb)
                                         -1)))
                     ((equal op "eql") (list 'eql aa bb))
-                    (t (error "HERE")))))))
+                    (t (error "HERE")))
+                nil))))
 
 (defun get-subtree (state var)
     ;; (list "get-subtree" (last state) var))
     (cond 
-        ((equal var "w") (nth 0 state))
+        ((equal var "w") (list 'w (- (nth 0 state) 1)))
         ((equal var "x") (nth 1 state))
         ((equal var "y") (nth 2 state))
         ((equal var "z") (nth 3 state))
@@ -62,8 +63,7 @@
     ;; (print (list "parse-line" state line))
     (let* ( (tokens (split-sequence:split-sequence #\   line :remove-empty-subseqs t)))
         (if (equal (car tokens) "inp") 
-            (set-subtree state "w" 
-                (list 'w (+ 1 (second (get-subtree state "w")))))
+            (set-subtree state "w" (+ 1 (nth 0 state)))
             (apply #'parse-op (append (list state) tokens)))))
 
 ;; ---- SIMPLIFYING
@@ -73,7 +73,7 @@
 (defun op/ (a b) (floor (/ a b)))
 (defun op= (a b) (if (= a b) 1 0))
 
-(defun simplify-matcher (x)
+(defun simplify-matcher (x setW)
     ;; (print (list "simplify-matcher" x))
     (trivia:match x
         ((or (list 'mul 0 _) (list 'mul _ 0)) 0)
@@ -92,17 +92,17 @@
                 (t (error "Unknown operation"))))
         ((trivia:guard 
             (list 'eql a b) 
-            (or (> (lower-bound a) (upper-bound b)) 
-                (> (lower-bound b) (upper-bound a)))) 0)
+            (or (> (lower-bound a setW) (upper-bound b setW)) 
+                (> (lower-bound b setW) (upper-bound a setW)))) 0)
         ((list* _) nil)))
 
-(defun upper-matcher (x)
+(defun upper-matcher (x setW)
     (if (equal (first x) 'w)
         9
-        (let* ( (la (lower-bound (second x)))
-                (ua (upper-bound (second x)))
-                (lb (lower-bound (third x)))
-                (ub (upper-bound (third x))))
+        (let* ( (la (lower-bound (second x) setW))
+                (ua (upper-bound (second x) setW))
+                (lb (lower-bound (third x) setW))
+                (ub (upper-bound (third x) setW)))
             (trivia:match x
                 ((list 'add a b) (+ ua ub))
                 ((list 'mul a b) 
@@ -114,16 +114,15 @@
 
 ; ADD MUL DIV MOD EQL
 
-(defun lower-matcher (x)
+(defun lower-matcher (x setW)
     (if (equal (first x) 'w)
         1
-        (let* ( (la (lower-bound (second x)))
-                (ua (upper-bound (second x)))
-                (lb (lower-bound (third x)))
-                (ub (upper-bound (third x))))
+        (let* ( (la (lower-bound (second x) setW))
+                (ua (upper-bound (second x) setW))
+                (lb (lower-bound (third x) setW))
+                (ub (upper-bound (third x) setW)))
             (trivia:match x
-                ((list 'add a b) 
-                    (+ (lower-bound a) (lower-bound b)))
+                ((list 'add a b) (+ la lb))
                 ((list 'mul a b) 
                     (min (* la lb) (* la ub) (* ua lb) (* ua ub)))
                 ((list 'div a b) 
@@ -131,42 +130,44 @@
                 ((list 'eql a b) 0)
                 ((list* _) nil)))))
 
-(defun bound-aux (cache matcher x)
+(defun bound-aux (cache matcher x setW)
     ;; (print (list "bound-aux" matcher x))
-    (let ((xx (simplify x)))
+    (let (  (xx (simplify x setW))
+            (key (list x setW)))
         (cond   ((null xx) (error "bound-aux rceived NIL"))
                 ((not (listp xx)) xx)
-                ((gethash xx cache) (gethash xx cache))
-                (t  (setf   (gethash xx cache)
-                            (let* ( (z  (funcall matcher xx)))
+                ((gethash key cache) (gethash key cache))
+                (t  (setf   (gethash key cache)
+                            (let* ( (z  (funcall matcher xx setW)))
                                 (if (null z)
-                                    xx 
-                                    (bound-aux cache matcher z))))))))
+                                    xx
+                                    (bound-aux cache matcher z setW))))))))
 
 (defparameter *scache* (make-hash-table :test 'equal))
-(defun simplify-aux (x)
+(defun simplify-aux (x setW)
     (cond 
         ((null x) (error "simplify-aux received NIL"))
         ((not (listp x)) x)
-        (t (let ((z (simplify-matcher x)))
+        (t (let ((z (simplify-matcher x setW)))
                 (if (null z)
                     x 
-                    (simplify z))))))
+                    (simplify z setW))))))
 
-(defun simplify (x)
+(defun simplify (x setW)
     ;; (print (list "simplify" x))
     (cond   ((null x) (error "simplify received nil"))
-            ((gethash x *scache*) (gethash x *scache*))
-            (t (setf    (gethash x *scache*)
-                        (simplify-aux x)))))
+            ((gethash (list x setW) *scache*) 
+                (gethash (list x setW) *scache*))
+            (t (setf    (gethash (list x setW) *scache*)
+                        (simplify-aux x setW)))))
 
 (defparameter *ucache* (make-hash-table :test 'equal))
-(defun upper-bound (x)
-    (bound-aux *ucache* #'upper-matcher x))
+(defun upper-bound (x setW)
+    (bound-aux *ucache* #'upper-matcher x setW))
 
 (defparameter *lcache* (make-hash-table :test 'equal))
-(defun lower-bound (x)
-    (bound-aux *lcache* #'lower-matcher x))
+(defun lower-bound (x setW)
+    (bound-aux *lcache* #'lower-matcher x setW))
 
 
 ;; (defparameter test (list 'eql (list 'add 10 -4) (list 'w 1)))
@@ -176,8 +177,11 @@
 (defparameter *state* (load-data))
 (defparameter *z* (get-subtree *state* "z"))
 ;; (print (identity *z*))
-(print (lower-bound *z*))
-(print (upper-bound *z*))
+(print (lower-bound *z* nil))
+(print (upper-bound *z* nil))
+;; (print (nth 0 *state*))
+
+;; (loop for i in (alexandria:iota (nth 0 *state*)) do
 
 ;; (print *z*)
 ;; (defun find-largest-w (tree w))
