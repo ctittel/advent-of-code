@@ -6,7 +6,7 @@
 ;; ----- PARSING
 
 (defun load-data() 
-        (let* ( (data (alexandria:read-file-into-string "input.txt"))
+        (let* ( (data (alexandria:read-file-into-string "test.txt"))
                 (lines (split-sequence:split-sequence #\Newline data :remove-empty-subseqs t)))
             (reduce
                 (lambda (total x) (parse-line total x))
@@ -16,19 +16,26 @@
 ; state: i_w, x current subtree, y current subtree, z tree
 
 (defun parse-op (state op a b)
-    ;; (print (list "parse-op" state op a b))
+    (print (list "parse-op" state op a b))
     (let* ( (aa (get-subtree state a))
             (bb (get-subtree state b)))
         (set-subtree
             state
             a
-            (cond
-                ((equal op "add") (list 'add aa bb))
-                ((equal op "mul") (list 'mul aa bb))
-                ((equal op "div") (list 'div aa bb))
-                ((equal op "eql") (list 'eql aa bb))
-                ((equal op "mod") (list 'rem aa bb))
-                (t (error "HERE"))))))
+            (simplify
+                (cond
+                    ((equal op "add") (list 'add aa bb))
+                    ((equal op "mul") (list 'mul aa bb))
+                    ((equal op "div") (list 'div aa bb))
+                    ((equal op "mod") ;; mod a b == a - ((a / b) * b)
+                        (list 'add  aa 
+                                    (list 'mul 
+                                        (list 'mul
+                                            (list 'div aa bb)
+                                            bb)
+                                        -1)))
+                    ((equal op "eql") (list 'eql aa bb))
+                    (t (error "HERE")))))))
 
 (defun get-subtree (state var)
     ;; (list "get-subtree" (last state) var))
@@ -44,6 +51,7 @@
 
 (defun set-subtree (state var new)
     (cond 
+        ((null new) (error "NEW SUBTREE IS NIL"))
         ((equal var "w") (copy-replace state 0 new))
         ((equal var "x") (copy-replace state 1 new))
         ((equal var "y") (copy-replace state 2 new))
@@ -62,99 +70,102 @@
 
 ; ADD MUL DIV MOD EQL
 
-(defun is-w (l)
-    (equal (first l) 'w))
+(defun op/ (a b) (floor (/ a b)))
+(defun op= (a b) (if (= a b) 1 0))
 
-(defun simplify-matcher (x) 
-    (trivia:match x
-        ((or (list 'mul 0 _) (list 'mul _ 0)) 0)
-        ((list 'div a 1) a)
-        ((or (list 'add 0 a) (list 'add a 0)) a)
-        ((or (list 'mul 1 a) (list 'mul a 1)) a)
-        ((trivia:guard 
-            (list 'mul a b)
-            (and (numberp a) (numberp b))) (* a b))
-        ((trivia:guard 
-            (list 'add a b)
-            (and (numberp a) (numberp b))) (+ a b))
-        ((trivia:guard 
-            (list 'rem a b)
-            (and (numberp a) (numberp b))) (rem a b))
-        ((trivia:guard 
-            (list 'div a b)
-            (and (numberp a) (numberp b))) (floor (/ a b)))
-        ((trivia:guard 
-            (list 'eql a b)
-            (and (numberp a) (numberp b))) (if (= a b) 1 0))
-        ((trivia:guard 
-            (or (list 'eql a w) (list 'eql w a))
-            (and (numberp a) (>= a 10) (is-w w))) 0)
-        ((or   (list 'mul a (list 'add b c)) 
-               (list 'mul (list 'add b c) a))
-            (list 'add (list 'mul a b) (list 'mul a c)))
-        ((trivia:guard 
-            (list 'rem a b)
-            (> b (upper-estimate a)))
-            a)
-        ((trivia:guard 
-            (or (list 'add (list 'add rest a) b)
-                (list 'add (list 'add a rest) b)
-                (list 'add b (list 'add a rest))
-                (list 'add b (list 'add rest a)))
-            (and    (numberp a)
-                    (numberp b)))
-            (list 'add rest (+ a b)))
-        ((trivia:guard 
-            (or (list 'eql a b) (list 'eql b a))
-            (>  (lower-estimate a) (upper-estimate b)))
-            0)
-        ((list* _) x)))
-
-(defun simplify (x)
-    (if (listp x)
-        (simplify-matcher (mapcar #'simplify x))
-        x))
-
-(defun lower-matcher (x)
-    (trivia:match x
-        ((trivia:guard
-            (or (list 'mul a rest)
-                (list 'mul rest a))
-            (and (numberp a) (< a 0)))
-            (* a (upper-estimate rest)))
-        ((trivia:guard
-            (or (list 'mul a rest)
-                (list 'mul rest a))
-            (and (numberp a) (> a 0)))
-            (* a (lower-estimate rest)))
-        ((list 'w i) 1)
-        ((list* _) x)))
+(defun simplify-matcher (x)
+    (print (list "simplify-matcher" x))
+    (print
+    (let* ( (la (lower-estimate (second x)))
+            (ua (upper-estimate (second x)))
+            (lb (lower-estimate (third x)))
+            (ub (upper-estimate (third x))))
+        (trivia:match x
+            ((or (list 'mul 0 _) (list 'mul _ 0)) 0)
+            ((list 'div a 1) a)
+            ((or (list 'add 0 a) (list 'add a 0)) a)
+            ((or (list 'mul 1 a) (list 'mul a 1)) a)
+            ((trivia:guard 
+                (list op a b)
+                (and (numberp a) (numberp b)))
+                (cond 
+                    ((equal op 'add) (+ a b))
+                    ((equal op 'mul) (* a b))
+                    ((equal op 'div) (op/ a b))
+                    ((equal op 'eql) (op= a b))
+                    ((equal op 'mod) (rem a b))
+                    (t (error "Unknown operation"))))
+            ((trivia:guard (list 'eql a b) (or (> la ub) (> lb ua))) 0)
+            ((list* _) nil)))))
 
 (defun upper-matcher (x)
-    (trivia:match x
-        ((trivia:guard
-            (or (list 'mul a rest)
-                (list 'mul rest a))
-            (and (numberp a) (< a 0)))
-            (* a (lower-estimate rest)))
-        ((trivia:guard
-            (or (list 'mul a rest)
-                (list 'mul rest a))
-            (and (numberp a) (> a 0)))
-            (* a (upper-estimate rest)))
-        ((list 'w i) 9)
-        ((list* _) x)))
+    (let* ( (la (lower-estimate (second x)))
+            (ua (upper-estimate (second x)))
+            (lb (lower-estimate (third x)))
+            (ub (upper-estimate (third x))))
+        (trivia:match x
+            ((list 'add a b) (+ ua ub))
+            ((list 'mul a b) (max (* la lb) (* la ub) (* ua lb) (* ua ub)))
+            ((list 'div a b) (max (op/ la lb) (op/ la ub) (op/ ua lb) (op/ ua ub)))
+            ((list* _) nil))))
 
+; ADD MUL DIV MOD EQL
+
+(defun lower-matcher (x)
+    (let* ( (la (lower-estimate (second x)))
+            (ua (upper-estimate (second x)))
+            (lb (lower-estimate (third x)))
+            (ub (upper-estimate (third x))))
+        (trivia:match x
+            ((list 'add a b) (+ la lb))
+            ((list 'mul a b) (min (* la lb) (* la ub) (* ua lb) (* ua ub)))
+            ((list 'div a b) (min (op/ la lb) (op/ la ub) (op/ ua lb) (op/ ua ub)))
+            ((list* _) nil))))
+
+(defun estimate-aux (cache matcher x)
+    (print (list "estimate-aux" matcher x))
+    (cond   ((null x) (error "estimate-aux rceived NIL"))
+            ((not (listp x)) x)
+            ((gethash x cache) (gethash x cache))
+            (t  (setf   (gethash x cache)
+                        (let ((z  (funcall matcher x)))
+                            (if (null z)
+                                x 
+                                (estimate-aux cache matcher z)))))))
+
+(defparameter *scache* (make-hash-table :test 'equal))
+(defun simplify-aux (x)
+    (if (null x) 
+        (error "simplify-aux received NIL")
+        (let ((z (simplify-matcher x)))
+            (if (null z)
+                x 
+                (simplify z)))))
+(defun simplify (x)
+    (print (list "simplify" x))
+    (cond   ((null x) (error "simplify received nil"))
+            ((not (listp x)) x)
+            ((equal (first x) 'w) x)
+            ((gethash x *scache*) (gethash x *scache*))
+            (t (setf    (gethash x *scache*)
+                        (simplify-aux x)))))
+
+(defparameter *ucache* (make-hash-table :test 'equal))
 (defun upper-estimate (x)
-    (if (listp x)
-        (simplify (upper-matcher (mapcar #'upper-estimate (simplify x))))
-        x))
+    (cond 
+        ((null x) (error "upper-estimate received nil"))
+        ((not (listp x)) x)
+        ((equal (first x) 'w) 9)
+        (t (estimate-aux *ucache* #'upper-matcher x))))
 
+(defparameter *lcache* (make-hash-table :test 'equal))
 (defun lower-estimate (x)
-    (if (listp x)
-        (simplify (lower-matcher (mapcar #'lower-estimate (simplify x))))
-        x))
+    (cond 
+        ((null x) (error "lower-estimate received nil"))
+        ((not (listp x)) x)
+        ((equal (first x) 'w) 1)
+        (t (estimate-aux *lcache* #'lower-matcher x))))
 
 (defparameter *state* (load-data))
-(defparameter *z* (get-subtree *state* "z"))
-(print (simplify (simplify (simplify (simplify *z*)))))
+;; (defparameter *z* (get-subtree *state* "z"))
+;; (print (identity *z*))
