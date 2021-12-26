@@ -6,7 +6,7 @@
 ;; ----- PARSING
 
 (defun load-data() 
-        (let* ( (data (alexandria:read-file-into-string "test.txt"))
+        (let* ( (data (alexandria:read-file-into-string "input.txt"))
                 (lines (split-sequence:split-sequence #\Newline data :remove-empty-subseqs t)))
             (reduce
                 (lambda (total x) (parse-line total x))
@@ -16,7 +16,7 @@
 ; state: i_w, x current subtree, y current subtree, z tree
 
 (defun parse-op (state op a b)
-    (print (list "parse-op" state op a b))
+    ;; (print (list "parse-op" state op a b))
     (let* ( (aa (get-subtree state a))
             (bb (get-subtree state b)))
         (set-subtree
@@ -71,13 +71,10 @@
 ; ADD MUL DIV MOD EQL
 
 (defun op/ (a b) (floor (/ a b)))
-(defun op= (a b) 
-    (let ()
-        (print "OP= CALLED")
-        (if (= a b) 1 0)))
+(defun op= (a b) (if (= a b) 1 0))
 
 (defun simplify-matcher (x)
-    (print (list "simplify-matcher" x))
+    ;; (print (list "simplify-matcher" x))
     (trivia:match x
         ((or (list 'mul 0 _) (list 'mul _ 0)) 0)
         ((list 'div a 1) a)
@@ -110,6 +107,7 @@
                 ((list 'add a b) (+ (upper-estimate a) (upper-estimate b)))
                 ((list 'mul a b) (max (* la lb) (* la ub) (* ua lb) (* ua ub)))
                 ((list 'div a b) (max (op/ la lb) (op/ la ub) (op/ ua lb) (op/ ua ub)))
+                ((list 'eql a b) 1)
                 ((list* _) nil)))))
 
 ; ADD MUL DIV MOD EQL
@@ -130,10 +128,11 @@
                     (* (upper-estimate a) (lower-estimate b)) 
                     (* (upper-estimate a) (upper-estimate b))))
                 ((list 'div a b) (min (op/ la lb) (op/ la ub) (op/ ua lb) (op/ ua ub)))
+                ((list 'eql a b) 0)
                 ((list* _) nil)))))
 
 (defun estimate-aux (cache matcher x)
-    (print (list "estimate-aux" matcher x))
+    ;; (print (list "estimate-aux" matcher x))
     (let ((xx (simplify x)))
         (cond   ((null xx) (error "estimate-aux rceived NIL"))
                 ((not (listp xx)) xx)
@@ -155,7 +154,7 @@
                     (simplify z))))))
 
 (defun simplify (x)
-    (print (list "simplify" x))
+    ;; (print (list "simplify" x))
     (cond   ((null x) (error "simplify received nil"))
             ((gethash x *scache*) (gethash x *scache*))
             (t (setf    (gethash x *scache*)
@@ -169,12 +168,13 @@
 (defun lower-estimate (x)
     (estimate-aux *lcache* #'lower-matcher x))
 
-;; (defparameter *state* (load-data))
 
-(defparameter test (list 'eq 0 (list 'w 1)))
-(print (simplify test))
-(print (lower-estimate test))
-(print (upper-estimate test))
+;; (defparameter test (list 'eql (list 'add 10 -4) (list 'w 1)))
+;; (print (lower-estimate test))
+;; (print (upper-estimate test))
 
-;; (defparameter *z* (get-subtree *state* "z"))
+(defparameter *state* (load-data))
+(defparameter *z* (get-subtree *state* "z"))
 ;; (print (identity *z*))
+(print (lower-estimate *z*))
+(print (upper-estimate *z*))
