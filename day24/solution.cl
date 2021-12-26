@@ -6,7 +6,7 @@
 ;; ----- PARSING
 
 (defun load-data() 
-        (let* ( (data (alexandria:read-file-into-string "test.txt"))
+        (let* ( (data (alexandria:read-file-into-string "input.txt"))
                 (lines (split-sequence:split-sequence #\Newline data :remove-empty-subseqs t)))
             (reduce
                 (lambda (total x) (parse-line total x))
@@ -127,7 +127,8 @@
                 (list 'mul rest a))
             (and (numberp a) (> a 0)))
             (* a (lower-estimate rest)))
-        ((list 'w i) 1)))
+        ((list 'w i) 1)
+        ((list* _) x)))
 
 (defun upper-matcher (x)
     (trivia:match x
@@ -141,18 +142,19 @@
                 (list 'mul rest a))
             (and (numberp a) (> a 0)))
             (* a (upper-estimate rest)))
-        ((list 'w i) 9)))
+        ((list 'w i) 9)
+        ((list* _) x)))
 
 (defun upper-estimate (x)
     (if (listp x)
-        (upper-matcher (mapcar #'upper-estimate x))
+        (simplify (upper-matcher (mapcar #'upper-estimate (simplify x))))
         x))
 
 (defun lower-estimate (x)
     (if (listp x)
-        (lower-matcher (mapcar #'lower-estimate (simplify x)))
+        (simplify (lower-matcher (mapcar #'lower-estimate (simplify x))))
         x))
 
 (defparameter *state* (load-data))
 (defparameter *z* (get-subtree *state* "z"))
-(print (simplify (simplify (simplify *z*))))
+(print (simplify (simplify (simplify (simplify *z*)))))
