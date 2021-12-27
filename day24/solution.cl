@@ -194,7 +194,7 @@
 ;;             setW)
 ;;         x))
 
-(defparameter w (list 10 10 10 10))
+(defparameter w (list 9 9 5 6 9 1 9 3 4 9 9 7 9 9))
 (defparameter test (list 'mul (list 'add (list 'w 10) (list 'w 1)) (list 'w 20)))
 
 ;; (print (simplify test w))
