@@ -67,6 +67,8 @@
 
 (defun simplify-patterns (cache subst tree)
     (trivia:match tree
+        ((trivia:guard (list 'w i) (nth i subst))
+            (nth i subst))
         ((or (list 'mul 0 _) (list 'mul _ 0)) 0)
         ((list 'div a 1) a)
         ((or (list 'add 0 a) (list 'add a 0)) a)
@@ -81,23 +83,30 @@
                 ((equal op 'eql) (if (= a b) 1 0))
                 ((equal op 'mod) (rem a b))
                 (t (error "Unknown operation"))))
-        ((trivia:guard
+        ((trivia:guard ; comparisons with w and a number where that number is greater than w 
             (or (list 'eql (list 'w i) a) (list 'eql a (list 'w i)))
             (and (numberp a) (> a 9)))
             0)
-        ((trivia:guard
+        ((trivia:guard ; nested addition
             (or (list 'add (list 'add a rest) b) 
                 (list 'add b (list 'add a rest)) 
                 (list 'add b (list 'add rest a)) 
                 (list 'add (list 'add rest a) b))
             (and (numberp a) (numberp b)))
             (list 'add (+ a b) rest))
-        ;; ((trivia:guard 
-        ;;     (list 'eql a b) 
-        ;;     (or (> (lower-bound a setW) (upper-bound b setW)) 
-        ;;         (> (lower-bound b setW) (upper-bound a setW)))) 0)
-        ((trivia:guard (list 'w i) (nth i subst))
-            (nth i subst))
+        ((trivia:guard ; nested product
+            (or (list 'mul (list 'mul a rest) b) 
+                (list 'mul b (list 'mul a rest)) 
+                (list 'mul b (list 'mul rest a)) 
+                (list 'mul (list 'mul rest a) b))
+            (and (numberp a) (numberp b)))
+            (list 'mul (* a b) rest))
+        ;; ((or (list 'mul (list 'add b c) a) (list 'mul a (list 'add b c))) ; a (b + c) -> ab + ac
+        ;;     (list 'add (list 'mul a b) (list 'mul a c)))
+        ;; ((or (list 'mul (list 'eql b c) a) (list 'mul a (list 'eql b c))) ; mul a (b = c) -> ab = ac
+        ;;     (list 'eql (list 'mul a b) (list 'mul a c)))
+        ;; ((list 'mod (list 'add a b) c) ; (a + b) % c -> ((a % c) + (b % c)) % c
+        ;;     (list 'mod (list 'add (list 'mod a c) (list 'mod b c)) c))
         ((list* _) nil)))
 
 (defun simplify-aux (cache subst tree)
@@ -127,8 +136,39 @@
 (defparameter *data* (fourth (load-data)))
 
 (loop for i in (alexandria:iota 9 :start 1) do
-    (print i)
-    (print (simplify    
+    (print (list i (simplify    
                 *cache*
-                (list 9 9 5 6 9 1 9 3 4 nil 9 7 9 9 );; *subst*
-                *data*)))
+                (list 
+                    9 ; 1   
+                    2 ; 2   
+                    9 ; 3   
+                    6 ; 4   
+                    9 ; 5   
+                    5 ; 6   
+                    9 ; 7   
+                    3 ; 8   
+                    4 ; 9   
+                    9 ; 10  
+                    7 ; 11  
+                    9 ; 12  
+                    9 ; 13  
+                    2 ; 14  
+                    );; *subst*
+                *data*))))
+
+; 92969593497992
+
+; W0
+; W1
+; W2
+; W3
+; W4
+; W5
+; W6
+; W7
+; W8
+; W9
+; W10
+; W11
+; W12: 4
+; W13: 9
