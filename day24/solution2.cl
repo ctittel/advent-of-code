@@ -1,3 +1,21 @@
+;; How I solved it:
+;;      In the input you can identify two types of blocks: 
+;;          - PUT blocks which add a letter to z, which contain: `div z 1`
+;;          - POP blocks which remove a letter from z, which contain: `div z 26`
+;;      It seems to be a LIFA Queue (last in, first out)
+;;      Every PUT block corresponds to one POP block, so there is a relationship between two digits
+;;      The relationships are the following: 1 & 14; 2 & 13; 3 & 6; 4 & 5; 7 & 8; 9 & 10; 11 & 12
+;; Through some trial and error (see the bottom of this file) you can identify the following relationships that must be true for a number to be minimal:
+;;  W1 = W14 + 7
+;;  W2 = W13 - 7
+;;  W3 = W6 + 4
+;;  W4 = W5 - 3
+;;  W7 = W8 + 6
+;;  W9 = W10 - 5
+;;  W11 = W12 - 2
+;; With these simple relationships identified it is now easy to plug together the minimal / maximal serial number
+
+
 (load "~/quicklisp/setup.lisp")
 (require "alexandria")
 (require "split-sequence")
@@ -139,36 +157,22 @@
     (print (list i (simplify    
                 *cache*
                 (list 
-                    9 ; 1   
-                    2 ; 2   
-                    9 ; 3   
-                    6 ; 4   
-                    9 ; 5   
-                    5 ; 6   
-                    9 ; 7   
-                    3 ; 8   
-                    4 ; 9   
-                    9 ; 10  
-                    7 ; 11  
-                    9 ; 12  
-                    9 ; 13  
-                    2 ; 14  
+                    8 ; 1   
+                    1 ; 2   
+                    5 ; 3   
+                    1 ; 4   
+                    4 ; 5   
+                    1 ; 6   
+                    7 ; 7   
+                    1 ; 8   
+                    1 ; 9   
+                    6 ; 10  
+                    1 ; 11  
+                    3 ; 12  
+                    8 ; 13  
+                    1 ; 14  
                     );; *subst*
                 *data*))))
 
-; 92969593497992
-
-; W0
-; W1
-; W2
-; W3
-; W4
-; W5
-; W6
-; W7
-; W8
-; W9
-; W10
-; W11
-; W12: 4
-; W13: 9
+; Solution A (largest): 92969593497992
+; Solution B (smallest): 81514171161381

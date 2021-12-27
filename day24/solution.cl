@@ -1,3 +1,8 @@
+;; NOTE:     This was my first attempt at solving puzzle 
+;;           The idea was to simplify the expression using pattern matching and then hopefully find a simple closed form solution
+;;           This approach didn't work - see solution2.cl for an approach that works
+
+
 (load "~/quicklisp/setup.lisp")
 (require "alexandria")
 (require "split-sequence")
